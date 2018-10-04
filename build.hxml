@@ -1,0 +1,9 @@
+-lib buddy
+
+-debug
+-cp src
+-cp tests
+-D analyzer-optimize
+
+-main DeepStateTests
+-neko bin/deepstate_tests.n

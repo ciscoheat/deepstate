@@ -1,0 +1,16 @@
+{
+	"name": "deepstate",
+	"license": "MIT",
+	"tags": [
+		"state",
+		"redux"
+	],
+	"classPath": "src",
+	"description": "Deep Immutable State Management",
+	"contributors": [
+		"ciscoheat"
+	],
+	"releasenote": "Initial release",
+	"version": "0.1.0",
+	"url": "http://github.com/ciscoheat/deepstate/"
+}
