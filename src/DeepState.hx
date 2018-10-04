@@ -69,16 +69,25 @@ class DeepState<T> {
     }
     #end
 
-    /*
-    macro public function update(store : ExprOf<Store<Dynamic>>, path : Expr, newValues : Expr) {
+    macro public function updateIn(store : ExprOf<DeepState<Dynamic>>, path : Expr, newValue : Expr) {
         var t1 = Context.typeof(path);
-        var t2 = Context.typeof(newValues);
+        var t2 = Context.typeof(newValue);
+        
+        var pathStr = path.toString();
 
-        trace("=== " + path.toString());
+        trace("=== " + pathStr);
+
+        // Strip "store.state." from path
+        for(v in Context.getLocalTVars()) {
+            if(pathStr.indexOf('${v.name}.state.') == 0) {
+                pathStr = pathStr.substr(v.name.length + 7);
+                break;
+            }
+        }
 
         if(Context.unify(t1, t2)) {
             trace("Types unifies.");
-            return path;
+            return macro $store.update($v{pathStr}, $newValue);
         }
 
         switch t1 {
@@ -92,5 +101,4 @@ class DeepState<T> {
 
         return path;
     }
-    */
 }

@@ -105,6 +105,18 @@ class DeepStateTests extends buddy.SingleSuite {
                 store.update.bind("some", "test").should.throwType(String);
                 store.update.bind("some.missing.field", 10).should.throwType(String);
             });
+
+            it("should use the updateIn macro for type safety", {
+                var storeVar : TestStateStore = store;
+                var newState = storeVar.updateIn(storeVar.state.person.name.firstName, "Allan");
+
+                newState.should.be(store.state);
+                newState.should.not.be(null);
+                newState.should.not.be(initialState);
+                newState.score.should.be(0);
+                newState.person.name.firstName.should.be("Allan");
+                newState.person.name.lastName.should.be("Enberg");
+            });
         });
     }
 }
