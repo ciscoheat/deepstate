@@ -1,7 +1,10 @@
+import haxe.macro.Type.AbstractType;
+import haxe.DynamicAccess;
 import haxe.macro.Context;
 import haxe.macro.Expr;
 
 using haxe.macro.ExprTools;
+using haxe.macro.Tools;
 using Reflect;
 using Lambda;
 
@@ -54,7 +57,7 @@ class DeepState<T> {
         return updateState(copy);
     }
 
-    function deepStateCopy(newState : haxe.DynamicAccess<Dynamic>, updatePath : DeepStateNode, newValue : Dynamic) : Void {
+    function deepStateCopy(newState : DynamicAccess<Dynamic>, updatePath : DeepStateNode, newValue : Any) : Void {
         var nodeName = updatePath.name();
         if(!newState.exists(nodeName)) throw "Key not found in state: " + updatePath;
         //trace('Updating: $updatePath');
@@ -67,38 +70,35 @@ class DeepState<T> {
             deepStateCopy(copy, updatePath.next(), newValue);
         }
     }
+
     #end
 
     macro public function updateIn(store : ExprOf<DeepState<Dynamic>>, path : Expr, newValue : Expr) {
+        // TODO: Error handling for failed typeof calls.
         var t1 = Context.typeof(path);
-        var t2 = Context.typeof(newValue);
-        
+
+        try {
+            var type = Context.toComplexType(t1);
+            Context.typeof(macro var test : $type = $newValue); 
+        } catch(e : Dynamic) {
+            Context.error("Value should be " + t1.toString(), newValue.pos);
+        }
+
         var pathStr = path.toString();
-
-        trace("=== " + pathStr);
-
-        // Strip "store.state." from path
+        // Strip "store.state" from path
         for(v in Context.getLocalTVars()) {
-            if(pathStr.indexOf('${v.name}.state.') == 0) {
-                pathStr = pathStr.substr(v.name.length + 7);
+            var pathTest = '${v.name}.state';
+            if(pathTest == pathStr) {
+                // Let update handle the error check
+                pathStr = "";
+                break;
+            }
+            else if(pathStr.indexOf('$pathTest.') == 0) {
+                pathStr = pathStr.substr(pathTest.length + 1);
                 break;
             }
         }
 
-        if(Context.unify(t1, t2)) {
-            trace("Types unifies.");
-            return macro $store.update($v{pathStr}, $newValue);
-        }
-
-        switch t1 {
-            case TAnonymous(a):
-                trace("Anonymous with fields [" + a.get().fields.map(f -> f.name).join(", ") + "]");
-                var t3 = Context.getType("Store.TestState_Vars_name");
-                trace("Unifies with var version: " + Context.unify(t3, t2));
-            case _:
-                trace("Unknown: " + t1);
-        }
-
-        return path;
+        return macro $store.update($v{pathStr}, $newValue);
     }
 }
