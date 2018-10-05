@@ -1,4 +1,5 @@
 -lib buddy
+-lib dataclass
 
 -debug
 -cp src

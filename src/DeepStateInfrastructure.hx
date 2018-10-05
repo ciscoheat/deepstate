@@ -11,15 +11,23 @@ class DeepStateInfrastructure {
             case TAnonymous(a):
                 // Check if all fields are final
                 for(f in a.get().fields) switch f.kind {
-                    case FVar(read, write) if(read == AccNormal && write == AccNever):
+                    case FVar(read, write) if(write == AccNever || write == AccCtor):
                         testFinalType(name + "." + f.name, f.type);
                     case _:
-                        Context.error(name + "." + f.name + " is not final, type cannot be used in Store.", f.pos);
+                        Context.error(name + "." + f.name + " is not final, type cannot be used in DeepState.", f.pos);
                 }
             case TInst(t, _):
                 var type = t.get();
                 if(type.name == "String" && type.pack.length == 0) return;
-                else Context.error("$name field is not final, cannot be used in Store.", type.pos);
+                else {
+                    for(field in type.fields.get()) switch field.kind {
+                        case FVar(read, write):
+                            var fieldName = name + "." + field.name;
+                            if(write == AccNever || write == AccCtor) testFinalType(fieldName, field.type);
+                            else Context.error('Field "$fieldName" is not final, cannot be used in DeepState.', type.pos);
+                        case FMethod(_): return;
+                    }                    
+                }
             
             case TAbstract(t, _):
                 var abstractType = t.get();
@@ -34,15 +42,14 @@ class DeepStateInfrastructure {
 
         function buildStateType(type : Type) switch type {
             case TInst(t, params): 
-                //Context.warning("Building Store from instance " + t + " with params " + params, t.get().pos);
-                var cls = t.get();
-                buildStateType(cls.superClass.params[0]);
+                //Context.warning("Building DeepState from instance " + t + " with params " + params, t.get().pos);
+                testFinalType(t.get().name, type);
 
                 /*
                 case TType(t2, _): 
                     testFinalType("", t2.get().type);
                     return null;
-                    //return Context.error("Type is not final, cannot use in Store", Context.currentPos());
+                    //return Context.error("Type is not final, cannot use in DeepState", Context.currentPos());
 
                 case x:
                     return Context.error("Unsupported type: " + x, Context.currentPos());
@@ -61,7 +68,10 @@ class DeepStateInfrastructure {
                 Context.error("Class expected", Context.currentPos());
         }
 
-        buildStateType(Context.getLocalType());
+        var cls = Context.getLocalClass().get();
+        if(cls.superClass == null) Context.error("Class must extend DeepState<T>, where T is the state type.", cls.pos);
+
+        buildStateType(cls.superClass.params[0]);
         return null;
     }
 }

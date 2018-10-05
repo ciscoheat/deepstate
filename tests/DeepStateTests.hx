@@ -1,4 +1,5 @@
 import buddy.CompilationShould;
+
 using buddy.Should;
 
 typedef TestState = {
@@ -11,9 +12,27 @@ typedef TestState = {
     }
 }
 
+class Person implements DataClass {
+    public final firstName : String;
+    public final lastName : String;
+}
+
+class DataClassState implements DataClass {
+    public final id : Int;
+    public final name : Person;
+}
+
+///////////////////////////////////////////////////////////
+
 class TestStateStore extends DeepState<TestState> {
     public function new(initialState) super(initialState);
 }
+
+class DataClassStore extends DeepState<DataClassState> {
+    public function new(initialState) super(initialState);
+}
+
+///////////////////////////////////////////////////////////
 
 class DeepStateTests extends buddy.SingleSuite {
     public function new() {

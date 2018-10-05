@@ -1,4 +1,6 @@
 -lib buddy
+-lib dataclass
+
 -cp tests
 -main DeepStateTests
 -dce full
