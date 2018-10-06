@@ -8,6 +8,50 @@ using haxe.macro.Tools;
 using Reflect;
 using Lambda;
 
+@:forward(length, concat, join, toString, indexOf, lastIndexOf, copy, iterator, map, filter)
+abstract ImmutableArray<T>(Array<T>) from Array<T> to Iterable<T> {
+	@:arrayAccess @:extern inline public function arrayAccess(key:Int):T return this[key];
+}
+
+@:forward(filter, first, isEmpty, iterator, join, last, map, toString)
+abstract ImmutableList<T>(List<T>) from List<T> to Iterable<T> {
+    public function add(item : T) : ImmutableList<T> {
+        var newList = this.filter(i -> true);
+        newList.add(item);
+        return newList;
+    }
+    // TODO: Remove, etc...
+}
+
+/*
+@:forward(exists, get, iterator, keys, toString)
+abstract ImmutableMap<K, V>(Map<K, V>) from Map<K, V> {
+  	@:arrayAccess @:extern inline public function arrayAccess(key:K):V return this.get(key);
+
+    public function set(key : K, value : V) : ImmutableMap<K, V> {
+        var newMap = [for(k in this.keys()) 
+            k => this.get(k)
+        ];
+        newMap.set(key, value);
+        return newMap;
+    }
+
+    public function remove(key : K) : ImmutableMap<K, V> {
+        return [for(k in this.keys()) 
+            if(key != k) k => this.get(k)
+        ];
+    }
+}
+*/
+
+typedef Action = {
+    final name : String;
+    final updates : ImmutableArray<{
+        final path : String;
+        final value : Dynamic;
+    }>;
+}
+
 private abstract DeepStateNode(Array<String>) from Array<String> {
     public inline function new(a : Array<String>) {
         if(a.length == 0) throw "DeepStateNode: Empty node list";
@@ -49,17 +93,19 @@ class DeepState<T> {
         return this.state = newState;
     }
 
-    public function update(updatePath : String, newValue : Any) : T {
-        if(updatePath.length == 0) throw "Use Store.updateState for updating the whole state.";
+    public function update(action : Action) : T {
         // TODO: Handle Dataclass (instad of state.copy)
         var copy = Reflect.copy(state);
-        deepStateCopy(cast copy, updatePath, newValue);
+        for(a in action.updates)
+            deepStateCopy(cast copy, a.path, a.value);
         return updateState(copy);
     }
 
     function deepStateCopy(newState : DynamicAccess<Dynamic>, updatePath : DeepStateNode, newValue : Any) : Void {
         var nodeName = updatePath.name();
+        if(nodeName.length == 0) throw "Use Store.updateState for updating the whole state.";
         if(!newState.exists(nodeName)) throw "Key not found in state: " + updatePath;
+
         //trace('Updating: $updatePath');
         if(!updatePath.hasNext()) {
             //trace('updating $nodeName and finishing.');
@@ -99,6 +145,14 @@ class DeepState<T> {
             }
         }
 
-        return macro $store.update($v{pathStr}, $newValue);
+        var actionName = Context.getLocalMethod();
+
+        return macro $store.update({
+            name: $v{actionName},
+            updates: [{
+                path: $v{pathStr},
+                value: $newValue
+            }]
+        });
     }
 }

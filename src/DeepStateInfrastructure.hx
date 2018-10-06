@@ -10,7 +10,7 @@ class DeepStateInfrastructure {
         function testFinalType(name : String, type : Type) : Void switch type {
             case TAnonymous(a):
                 // Check if all fields are final
-                for(f in a.get().fields) switch f.kind {
+                for(f in a.get().fields) /*if(f.isPublic)*/ switch f.kind {
                     case FVar(read, write) if(write == AccNever || write == AccCtor):
                         testFinalType(name + "." + f.name, f.type);
                     case _:
@@ -20,11 +20,11 @@ class DeepStateInfrastructure {
                 var type = t.get();
                 if(type.name == "String" && type.pack.length == 0) return;
                 else {
-                    for(field in type.fields.get()) switch field.kind {
+                    for(field in type.fields.get()) if(field.isPublic) switch field.kind {
                         case FVar(read, write):
                             var fieldName = name + "." + field.name;
                             if(write == AccNever || write == AccCtor) testFinalType(fieldName, field.type);
-                            else Context.error('Field "$fieldName" is not final, cannot be used in DeepState.', type.pos);
+                            else Context.error('$fieldName is not final, type cannot be used in DeepState.', type.pos);
                         case FMethod(_): return;
                     }                    
                 }

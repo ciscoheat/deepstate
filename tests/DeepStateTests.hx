@@ -80,9 +80,10 @@ class DeepStateTests extends buddy.SingleSuite {
             });
 
             it("should update fields in the middle of the state tree", {
-                var newState = store.update("person.name", {
-                    firstName: "Allan", lastName: "Benberg"
-                });
+                var newState = store.update({name: 'test', updates: [{ 
+                    path: "person.name", 
+                    value: { firstName: "Allan", lastName: "Benberg" }
+                }]});
 
                 testIdentity(newState);
                 newState.score.should.be(0);
@@ -92,7 +93,10 @@ class DeepStateTests extends buddy.SingleSuite {
             });
 
             it("should update fields at the end of the state tree", {
-                var newState = store.update("person.name.firstName", "Wallan");
+                var newState = store.update({name: 'test', updates: [{ 
+                    path: "person.name.firstName", 
+                    value: "Wallan"
+                }]});
 
                 testIdentity(newState);
                 newState.score.should.be(0);
@@ -110,7 +114,10 @@ class DeepStateTests extends buddy.SingleSuite {
             });
 
             it("should update fields at the top of the state tree", {
-                var newState = store.update("score", 10);
+                var newState = store.update({name: 'test', updates: [{ 
+                    path: "score", 
+                    value: 10
+                }]});
 
                 testIdentity(newState);
                 newState.score.should.be(10);
@@ -118,13 +125,29 @@ class DeepStateTests extends buddy.SingleSuite {
                 newState.person.name.lastName.should.be("Enberg");
             });
 
+            it("should update several fields if specified in the Action", {
+                var newState = store.update({name: 'test_multiple', updates: [
+                    { path: "score", value: 100 },
+                    { path: "person.name.lastName", value: "Benberg" }
+                ]});
+
+                testIdentity(newState);
+                newState.score.should.be(100);
+                newState.person.name.firstName.should.be("Wall");
+                newState.person.name.lastName.should.be("Benberg");
+            });
+
             it("should not allow empty string as field key", {
-                store.update.bind("", initialState).should.throwType(String);
+                store.update.bind({name: "test", updates: [{path: "", value: initialState}]})
+                    .should.throwType(String);
             });
 
             it("should throw if a field key doesn't exist in the state tree", {
-                store.update.bind("some", "test").should.throwType(String);
-                store.update.bind("some.missing.field", 10).should.throwType(String);
+                store.update.bind({name: "test", updates: [{path: "some", value: "test"}]})
+                    .should.throwType(String);
+
+                store.update.bind({name: "test", updates: [{path: "some.missing.field", value: 10}]})
+                    .should.throwType(String);
             });
 
             describe("The updateIn method", {
