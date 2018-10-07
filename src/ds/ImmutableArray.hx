@@ -1,8 +1,8 @@
 package ds;
 
 @:forward(length, concat, copy, filter, indexOf, iterator, join, lastIndexOf, map, slice, splice, toString)
-abstract ImmutableArray<T>(Array<T>) from Array<T> to Iterable<T> {
-	@:arrayAccess @:extern inline function arrayAccess(key:Int):T return this[key];
+abstract ImmutableArray<T>(Array<T>) from Array<T> {
+	@:arrayAccess inline function arrayAccess(key : Int) : T return this[key];
 
     public inline function new(array : Array<T>) this = array;
 

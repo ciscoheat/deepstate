@@ -9,7 +9,7 @@ using Reflect;
 
 typedef Action = {
     final name : String;
-    final updates : ImmutableArray<{
+    final updates : Array<{
         final path : String;
         final value : Dynamic;
     }>;
@@ -23,7 +23,7 @@ private abstract DeepStateNode(ImmutableArray<String>) {
 
     @:from
     public static function fromString(s : String) {
-        return new DeepStateNode(s.split("."));
+        return new DeepStateNode(new ImmutableArray(s.split(".")));
     }
 
     @:to
@@ -33,13 +33,15 @@ private abstract DeepStateNode(ImmutableArray<String>) {
 
     public function name() return this[0];
 
-    public function next() : DeepStateNode
+    public function next() : DeepStateNode {
         if(!hasNext()) throw "DeepStateNode: No more nodes."
-        else return new DeepStateNode(this.slice(1));
+        else return new DeepStateNode(new ImmutableArray(this.slice(1)));
+    }
 
-    public function isNextLeaf()
+    public function isNextLeaf() {
         if(!hasNext()) throw "DeepStateNode: No more nodes."
         else return this.length == 2;
+    }
 }
 
 @:autoBuild(ds.internal.DeepStateInfrastructure.build())

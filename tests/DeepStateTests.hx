@@ -12,7 +12,7 @@ typedef TestState = {
             final lastName : String;
         }
     }
-    final timestamp : Date;
+    final timestamps : ImmutableArray<Date>;
 }
 
 class Person implements DataClass {
@@ -46,7 +46,7 @@ class DeepStateTests extends buddy.SingleSuite {
                 person: {
                     name: { firstName: "Wall", lastName: "Enberg"}
                 },
-                timestamp: Date.now()
+                timestamps: []
             };
 
             function testIdentity(newState : TestState) {
@@ -67,7 +67,7 @@ class DeepStateTests extends buddy.SingleSuite {
                             firstName: "Allan", lastName: "Benberg"
                         }
                     },
-                    timestamp: Date.now()
+                    timestamps: [Date.now()]
                 };
 
                 CompilationShould.failFor(
@@ -78,7 +78,7 @@ class DeepStateTests extends buddy.SingleSuite {
 
                 newState.should.not.be(null);
                 newState.should.be(store.state);
-                newState.timestamp.getTime().should.beGreaterThan(0);
+                newState.timestamps[0].getTime().should.beGreaterThan(0);
 
                 newState.score.should.be(1);
                 newState.person.name.firstName.should.be("Allan");
@@ -179,6 +179,12 @@ class DeepStateTests extends buddy.SingleSuite {
                     CompilationShould.failFor(storeVar.updateIn(storeVar.state.score, "Not an Int"));
                 });
             });
+
+            describe("State containing data structures", {
+                it("should handle ImmutableArray", {
+
+                });
+            });
         });
 
         /////////////////////////////////////////////////////////////
@@ -212,12 +218,12 @@ class DeepStateTests extends buddy.SingleSuite {
 
                 it("should be able to access first and last elements with methods", {
                     var array = ["A", "B"];
-                    var immutableArray : ImmutableArray<String> = array;
+                    var immutableArray = new ImmutableArray<String>(array);
 
                     immutableArray.first().should.equal(Option.Some("A"));
                     immutableArray.last().should.equal(Option.Some("B"));
 
-                    var empty : ImmutableArray<String> = [];
+                    var empty = new ImmutableArray<String>([]);
                     empty.first().should.equal(None);
                     empty.last().should.equal(None);
                 });

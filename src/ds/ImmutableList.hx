@@ -1,7 +1,7 @@
 package ds;
 
 @:forward(length, filter, first, isEmpty, iterator, join, last, map, toString)
-abstract ImmutableList<T>(List<T>) from List<T> to Iterable<T> {
+abstract ImmutableList<T>(List<T>) from List<T> {
     public inline function new(list : List<T>) this = list;
 
     @:from static public function fromArray<T>(a : Array<T>) : ImmutableList<T> {
