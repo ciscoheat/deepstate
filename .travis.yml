@@ -14,8 +14,8 @@ haxe:
 install:
   - haxelib install travix
   # to always use the latest version of travix comment out the previous line and uncomment the next
-  - haxelib git travix https://github.com/back2dos/travix && pushd . && cd $(haxelib config)travix/git && haxe build-neko.hxml && popd
-  # - haxelib run travix install
+  # - haxelib git travix https://github.com/back2dos/travix && pushd . && cd $(haxelib config)travix/git && haxe build-neko.hxml && popd
+  - haxelib run travix install
 
 script:
   - haxelib run travix interp
