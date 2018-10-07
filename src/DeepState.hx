@@ -2,47 +2,12 @@ import haxe.macro.Type.AbstractType;
 import haxe.DynamicAccess;
 import haxe.macro.Context;
 import haxe.macro.Expr;
+import ds.ImmutableArray;
 
 using haxe.macro.ExprTools;
 using haxe.macro.Tools;
 using Reflect;
 using Lambda;
-
-@:forward(length, concat, join, toString, indexOf, lastIndexOf, copy, iterator, map, filter)
-abstract ImmutableArray<T>(Array<T>) from Array<T> to Iterable<T> {
-	@:arrayAccess @:extern inline public function arrayAccess(key:Int):T return this[key];
-}
-
-@:forward(filter, first, isEmpty, iterator, join, last, map, toString)
-abstract ImmutableList<T>(List<T>) from List<T> to Iterable<T> {
-    public function add(item : T) : ImmutableList<T> {
-        var newList = this.filter(i -> true);
-        newList.add(item);
-        return newList;
-    }
-    // TODO: Remove, etc...
-}
-
-/*
-@:forward(exists, get, iterator, keys, toString)
-abstract ImmutableMap<K, V>(Map<K, V>) from Map<K, V> {
-  	@:arrayAccess @:extern inline public function arrayAccess(key:K):V return this.get(key);
-
-    public function set(key : K, value : V) : ImmutableMap<K, V> {
-        var newMap = [for(k in this.keys()) 
-            k => this.get(k)
-        ];
-        newMap.set(key, value);
-        return newMap;
-    }
-
-    public function remove(key : K) : ImmutableMap<K, V> {
-        return [for(k in this.keys()) 
-            if(key != k) k => this.get(k)
-        ];
-    }
-}
-*/
 
 typedef Action = {
     final name : String;
@@ -52,8 +17,8 @@ typedef Action = {
     }>;
 }
 
-private abstract DeepStateNode(Array<String>) from Array<String> {
-    public inline function new(a : Array<String>) {
+private abstract DeepStateNode(ImmutableArray<String>) {
+    public inline function new(a : ImmutableArray<String>) {
         if(a.length == 0) throw "DeepStateNode: Empty node list";
         this = a;
     }
@@ -72,14 +37,14 @@ private abstract DeepStateNode(Array<String>) from Array<String> {
 
     public function next() : DeepStateNode
         if(!hasNext()) throw "DeepStateNode: No more nodes."
-        else return this.slice(1);
+        else return new DeepStateNode(this.slice(1));
 
     public function isNextLeaf()
         if(!hasNext()) throw "DeepStateNode: No more nodes."
         else return this.length == 2;
 }
 
-@:autoBuild(DeepStateInfrastructure.build())
+@:autoBuild(ds.internal.DeepStateInfrastructure.build())
 class DeepState<T> {
     #if !macro
     public var state(default, null) : T;
@@ -120,12 +85,14 @@ class DeepState<T> {
     #end
 
     macro public function updateIn(store : ExprOf<DeepState<Dynamic>>, path : Expr, newValue : Expr) {
-        // TODO: Error handling for failed typeof calls.
-        var t1 = Context.typeof(path);
+        var t1 = try Context.typeof(path)
+        catch(e : Dynamic) {
+            Context.error("Cannot find state type, please provide a type hint.", path.pos);
+        }
 
         try {
             var type = Context.toComplexType(t1);
-            Context.typeof(macro var test : $type = $newValue); 
+            Context.typeof(macro var _DStest : $type = $newValue); 
         } catch(e : Dynamic) {
             Context.error("Value should be " + t1.toString(), newValue.pos);
         }

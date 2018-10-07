@@ -1,4 +1,7 @@
+package ds.internal;
+
 #if macro
+
 import haxe.macro.Context;
 import haxe.macro.Expr;
 import haxe.macro.Type;
@@ -25,53 +28,53 @@ class DeepStateInfrastructure {
                             var fieldName = name + "." + field.name;
                             if(write == AccNever || write == AccCtor) testFinalType(fieldName, field.type);
                             else Context.error('$fieldName is not final, type cannot be used in DeepState.', type.pos);
-                        case FMethod(_): return;
-                    }                    
+                        case _:
+                            return;
+                    }
                 }
             
             case TAbstract(t, _):
+                // Allow immutable Int, Bool, Float
                 var abstractType = t.get();
-                if(abstractType.pack.length == 0 && 
-                    (abstractType.name == "Int" || abstractType.name == "Bool" || abstractType.name == "Float")
-                ) return
-                else testFinalType(name + "." + abstractType.name, Context.followWithAbstracts(abstractType.type));
+                if(abstractType.pack.length == 0 && ( 
+                    abstractType.name == "Bool" || 
+                    abstractType.name == "Float" ||
+                    abstractType.name == "Int" || 
+                    abstractType.name == "Int64"
+                )) return
+                else {
+                    testFinalType(
+                        name + "." + abstractType.name, 
+                        Context.followWithAbstracts(abstractType.type)
+                    );
+                }
 
             case x:
-                Context.error("Unsupported final type check: " + x, Context.currentPos());
-        }
-
-        function buildStateType(type : Type) switch type {
-            case TInst(t, params): 
-                //Context.warning("Building DeepState from instance " + t + " with params " + params, t.get().pos);
-                testFinalType(t.get().name, type);
-
-                /*
-                case TType(t2, _): 
-                    testFinalType("", t2.get().type);
-                    return null;
-                    //return Context.error("Type is not final, cannot use in DeepState", Context.currentPos());
-
-                case x:
-                    return Context.error("Unsupported type: " + x, Context.currentPos());
-                */
-
-            case TType(t, _):
-                //trace(t); 
-                //if(params.length > 0) Context.error("Typedefs with parameters are not supported.", t.get().pos);
-                var realType : DefType = t.get();
-                var storeType = realType.type;
-                //var complexType = Context.toComplexType(storeType);
-                testFinalType(realType.name, storeType);
-
-            case t:
-                trace(t);
-                Context.error("Class expected", Context.currentPos());
+                Context.error('Unsupported type for $name: $x', Context.currentPos());
         }
 
         var cls = Context.getLocalClass().get();
-        if(cls.superClass == null) Context.error("Class must extend DeepState<T>, where T is the state type.", cls.pos);
 
-        buildStateType(cls.superClass.params[0]);
+        if(cls.superClass == null || cls.superClass.params.length != 1)
+            Context.error("Class must extend DeepState<T>, where T is the state type.", cls.pos);
+
+        var type = cls.superClass.params[0];
+
+        switch type {
+            case TInst(t, params): 
+                Context.warning("Building DeepState from instance " + t + " with params " + params, t.get().pos);
+                testFinalType(t.get().name, type);
+
+            case TType(t, params):
+                var realType : DefType = t.get();
+                var storeType = realType.type;
+                Context.warning("Building DeepState from typedef " + t + " with params " + params, realType.pos);
+                testFinalType(realType.name, storeType);
+
+            case x:
+                Context.error("Unsupported type for DeepState: " + x, Context.currentPos());
+        }
+
         return null;
     }
 }
