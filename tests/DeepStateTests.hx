@@ -222,6 +222,16 @@ class DeepStateTests extends buddy.SingleSuite {
                     immutableArray[0].should.be("A");
                 });
 
+                it("should return a new array for the modification methods", {
+                    var immutableArray = new ImmutableArray<String>(["A"]);
+                    var array2 = immutableArray.push("B");
+
+                    array2.should.not.be(immutableArray);
+                    array2.length.should.be(2);
+                    array2[0].should.be("A");
+                    array2[1].should.be("B");
+                });
+
                 it("should return the same array if nothing could be removed from it", {
                     var immutableArray = new ImmutableArray<String>(["A"]);
                     immutableArray.remove("B").should.be(immutableArray);
