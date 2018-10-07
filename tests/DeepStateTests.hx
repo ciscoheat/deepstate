@@ -1,4 +1,6 @@
+import haxe.ds.Option;
 import buddy.CompilationShould;
+import ds.*;
 
 using buddy.Should;
 
@@ -10,6 +12,7 @@ typedef TestState = {
             final lastName : String;
         }
     }
+    final timestamp : Date;
 }
 
 class Person implements DataClass {
@@ -42,7 +45,8 @@ class DeepStateTests extends buddy.SingleSuite {
                 score: 0,
                 person: {
                     name: { firstName: "Wall", lastName: "Enberg"}
-                }
+                },
+                timestamp: Date.now()
             };
 
             function testIdentity(newState : TestState) {
@@ -62,7 +66,8 @@ class DeepStateTests extends buddy.SingleSuite {
                         name: {
                             firstName: "Allan", lastName: "Benberg"
                         }
-                    }
+                    },
+                    timestamp: Date.now()
                 };
 
                 CompilationShould.failFor(
@@ -73,6 +78,7 @@ class DeepStateTests extends buddy.SingleSuite {
 
                 newState.should.not.be(null);
                 newState.should.be(store.state);
+                newState.timestamp.getTime().should.beGreaterThan(0);
 
                 newState.score.should.be(1);
                 newState.person.name.firstName.should.be("Allan");
@@ -171,6 +177,63 @@ class DeepStateTests extends buddy.SingleSuite {
                 it("should unify between arguments for type safety", {
                     var storeVar : TestStateStore = store;
                     CompilationShould.failFor(storeVar.updateIn(storeVar.state.score, "Not an Int"));
+                });
+            });
+        });
+
+        /////////////////////////////////////////////////////////////
+
+        describe("Immutable datastructures", {
+            describe("ImmutableMap", {
+                it("should work with array access", {
+                    var map = ["A" => 1];
+                    var immutableMap : ImmutableMap<String, Int> = map;
+                    //var newMap = immutableMap.set("B", 2);
+
+                    [for(v in immutableMap.keys()) v].length.should.be(1);
+                    immutableMap["A"].should.be(1);
+                    //[for(v in newMap.keys()) v].length.should.be(2);
+                    //immutableMap.should.not.be(newMap);
+                });
+            });
+
+            describe("ImmutableArray", {
+                it("should work with array access", {
+                    var immutableArray = new ImmutableArray<String>(["A"]);
+                    immutableArray.length.should.be(1);
+                    immutableArray[0].should.be("A");
+                });
+
+                it("should return the same array if nothing could be removed from it", {
+                    var immutableArray = new ImmutableArray<String>(["A"]);
+                    immutableArray.remove("B").should.be(immutableArray);
+                    immutableArray.remove("A").should.not.be(immutableArray);
+                });
+
+                it("should be able to access first and last elements with methods", {
+                    var array = ["A", "B"];
+                    var immutableArray : ImmutableArray<String> = array;
+
+                    immutableArray.first().should.equal(Option.Some("A"));
+                    immutableArray.last().should.equal(Option.Some("B"));
+
+                    var empty : ImmutableArray<String> = [];
+                    empty.first().should.equal(None);
+                    empty.last().should.equal(None);
+                });
+            });
+
+            describe("ImmutableList", {
+                it("should convert an array to list", {
+                    var list : ImmutableList<String> = ["A"];
+                    list.length.should.be(1);
+                    list.first().should.be("A");
+                });
+
+                it("should return the same list if nothing was removed", {
+                    var list : ImmutableList<String> = ["A", "B"];
+                    list.remove("C").should.be(list);
+                    list.remove("A").should.not.be(list);
                 });
             });
         });

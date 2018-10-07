@@ -2,6 +2,12 @@ package ds;
 
 @:forward(length, filter, first, isEmpty, iterator, join, last, map, toString)
 abstract ImmutableList<T>(List<T>) from List<T> to Iterable<T> {
+    public inline function new(list : List<T>) this = list;
+
+    @:from static public function fromArray<T>(a : Array<T>) : ImmutableList<T> {
+        return new ImmutableList(Lambda.list(a));
+    }
+
     public function add(item : T) : ImmutableList<T> {
         var newList = this.filter(i -> true);
         newList.add(item);

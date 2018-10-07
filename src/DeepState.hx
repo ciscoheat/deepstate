@@ -1,13 +1,11 @@
-import haxe.macro.Type.AbstractType;
 import haxe.DynamicAccess;
 import haxe.macro.Context;
 import haxe.macro.Expr;
+
 import ds.ImmutableArray;
 
-using haxe.macro.ExprTools;
 using haxe.macro.Tools;
 using Reflect;
-using Lambda;
 
 typedef Action = {
     final name : String;
@@ -59,7 +57,7 @@ class DeepState<T> {
     }
 
     public function update(action : Action) : T {
-        // TODO: Handle Dataclass (instad of state.copy)
+        // TODO: Handle Dataclass (create a copy method based on type)
         var copy = Reflect.copy(state);
         for(a in action.updates)
             deepStateCopy(cast copy, a.path, a.value);

@@ -2,7 +2,9 @@ package ds;
 
 @:forward(length, concat, copy, filter, indexOf, iterator, join, lastIndexOf, map, slice, splice, toString)
 abstract ImmutableArray<T>(Array<T>) from Array<T> to Iterable<T> {
-	@:arrayAccess @:extern inline public function arrayAccess(key:Int):T return this[key];
+	@:arrayAccess @:extern inline function arrayAccess(key:Int):T return this[key];
+
+    public inline function new(array : Array<T>) this = array;
 
     public function insert(pos : Int, x : T) : ImmutableArray<T> {
         var newArray = this.copy();

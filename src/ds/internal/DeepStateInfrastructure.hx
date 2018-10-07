@@ -10,23 +10,25 @@ using Lambda;
 
 class DeepStateInfrastructure {
     static public function build() {
-        function testFinalType(name : String, type : Type) : Void switch type {
+        function testTypeFields(name : String, type : Type) : Void switch type {
             case TAnonymous(a):
-                // Check if all fields are final
-                for(f in a.get().fields) /*if(f.isPublic)*/ switch f.kind {
+                // Check if all fields in typedef are final
+                for(f in a.get().fields) switch f.kind {
                     case FVar(read, write) if(write == AccNever || write == AccCtor):
-                        testFinalType(name + "." + f.name, f.type);
+                        testTypeFields(name + "." + f.name, f.type);
                     case _:
                         Context.error(name + "." + f.name + " is not final, type cannot be used in DeepState.", f.pos);
                 }
             case TInst(t, _):
                 var type = t.get();
-                if(type.name == "String" && type.pack.length == 0) return;
-                else {
+                if(type.name == "String" && type.pack.length == 0) { 
+                    return;
+                } else {
+                    // Check if all public fields in class are final
                     for(field in type.fields.get()) if(field.isPublic) switch field.kind {
                         case FVar(read, write):
                             var fieldName = name + "." + field.name;
-                            if(write == AccNever || write == AccCtor) testFinalType(fieldName, field.type);
+                            if(write == AccNever || write == AccCtor) testTypeFields(fieldName, field.type);
                             else Context.error('$fieldName is not final, type cannot be used in DeepState.', type.pos);
                         case _:
                             return;
@@ -43,14 +45,14 @@ class DeepStateInfrastructure {
                     abstractType.name == "Int64"
                 )) return
                 else {
-                    testFinalType(
+                    testTypeFields(
                         name + "." + abstractType.name, 
                         Context.followWithAbstracts(abstractType.type)
                     );
                 }
 
             case x:
-                Context.error('Unsupported type for $name: $x', Context.currentPos());
+                Context.error('Unsupported DeepState type for $name: $x', Context.currentPos());
         }
 
         var cls = Context.getLocalClass().get();
@@ -62,14 +64,14 @@ class DeepStateInfrastructure {
 
         switch type {
             case TInst(t, params): 
-                Context.warning("Building DeepState from instance " + t + " with params " + params, t.get().pos);
-                testFinalType(t.get().name, type);
+                //Context.warning("=== Building DeepState from instance " + t + " with params " + params, t.get().pos);
+                testTypeFields(t.get().name, type);
 
             case TType(t, params):
                 var realType : DefType = t.get();
                 var storeType = realType.type;
-                Context.warning("Building DeepState from typedef " + t + " with params " + params, realType.pos);
-                testFinalType(realType.name, storeType);
+                //Context.warning("=== Building DeepState from typedef " + t + " with params " + params, realType.pos);
+                testTypeFields(realType.name, storeType);
 
             case x:
                 Context.error("Unsupported type for DeepState: " + x, Context.currentPos());
