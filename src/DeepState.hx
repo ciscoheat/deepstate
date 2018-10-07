@@ -87,7 +87,7 @@ class DeepState<T> {
     macro public function updateIn(store : ExprOf<DeepState<Dynamic>>, path : Expr, newValue : Expr) {
         var t1 = try Context.typeof(path)
         catch(e : Dynamic) {
-            Context.error("Cannot find state type, please provide a type hint.", path.pos);
+            Context.error("Cannot find field or its type in state.", path.pos);
         }
 
         try {
@@ -111,6 +111,10 @@ class DeepState<T> {
                 break;
             }
         }
+
+        // Strip "state."
+        if(pathStr.indexOf("state.") == 0)
+            pathStr = pathStr.substr(6);
 
         var actionName = Context.getLocalMethod();
 

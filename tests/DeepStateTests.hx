@@ -29,11 +29,17 @@ class DataClassState implements DataClass {
 
 class TestStateStore extends DeepState<TestState> {
     public function new(initialState) super(initialState);
+
+    public function addScore(add : Int) {
+        return this.updateIn(state.score, state.score + add);
+    }
 }
 
+/*
 class DataClassStore extends DeepState<DataClassState> {
     public function new(initialState) super(initialState);
 }
+*/
 
 ///////////////////////////////////////////////////////////
 
@@ -129,18 +135,28 @@ class DeepStateTests extends buddy.SingleSuite {
                 newState.score.should.be(10);
                 newState.person.name.firstName.should.be("Wall");
                 newState.person.name.lastName.should.be("Enberg");
+
+                var newState2 = store.addScore(20);
+                newState2.should.not.be(newState);
+                newState2.score.should.be(30);
             });
 
             it("should update several fields if specified in the Action", {
+                var timestamps = store.state.timestamps;
                 var newState = store.update({name: 'test_multiple', updates: [
                     { path: "score", value: 100 },
-                    { path: "person.name.lastName", value: "Benberg" }
+                    { path: "person.name.lastName", value: "Benberg" },
+                    { path: "timestamps", value: timestamps.push(Date.now()) }
                 ]});
 
                 testIdentity(newState);
                 newState.score.should.be(100);
+
                 newState.person.name.firstName.should.be("Wall");
                 newState.person.name.lastName.should.be("Benberg");
+
+                newState.timestamps.length.should.be(1);
+                newState.timestamps.should.not.be(timestamps);
             });
 
             it("should not allow empty string as field key", {
@@ -164,9 +180,11 @@ class DeepStateTests extends buddy.SingleSuite {
                     }).should.throwType(String);
                 });
 
-                it("should macro for type safety", {
+                it("should use a macro for type safety", {
                     var storeVar : TestStateStore = store;
                     var newState = storeVar.updateIn(storeVar.state.person.name.firstName, "Allan");
+
+                    CompilationShould.failFor(storeVar.updateIn(storeVar.state.notAField, "Allan"));
 
                     testIdentity(newState);
                     newState.score.should.be(0);
@@ -177,12 +195,6 @@ class DeepStateTests extends buddy.SingleSuite {
                 it("should unify between arguments for type safety", {
                     var storeVar : TestStateStore = store;
                     CompilationShould.failFor(storeVar.updateIn(storeVar.state.score, "Not an Int"));
-                });
-            });
-
-            describe("State containing data structures", {
-                it("should handle ImmutableArray", {
-
                 });
             });
         });

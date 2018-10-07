@@ -37,14 +37,16 @@ class DeepStateInfrastructure {
                         for(field in type.fields.get()) if(field.isPublic) switch field.kind {
                             case FVar(read, write):
                                 var fieldName = name + "." + field.name;
-                                if(write == AccNever || write == AccCtor) testTypeFields(fieldName, field.type);
-                                else Context.error('$fieldName is not final, type cannot be used in DeepState.', type.pos);
+                                if(write == AccNever || write == AccCtor) 
+                                    testTypeFields(fieldName, field.type);
+                                else 
+                                    Context.error('$fieldName is not final, type cannot be used in DeepState.', type.pos);
                             case _:
                                 return;
                         }
                     }
                 
-                case TAbstract(t, _):
+                case TAbstract(t, params):
                     // Allow Int, Int64, Bool, Float and the ds.ImmutableX types 
                     var abstractType = t.get();
                     if(abstractType.pack.length == 0 && ( 
@@ -57,7 +59,13 @@ class DeepStateInfrastructure {
                         abstractType.name == "ImmutableArray" || 
                         abstractType.name == "ImmutableList" ||
                         abstractType.name == "ImmutableMap"
-                    )) return
+                    )) {
+                        // TODO: Include type params in name
+                        testTypeFields(
+                            name + "." + abstractType.name + "<T>", 
+                            params[0]
+                        );
+                    }
                     else {
                         testTypeFields(
                             name + "." + abstractType.name, 
@@ -83,14 +91,16 @@ class DeepStateInfrastructure {
 
         switch type {
             case TInst(t, params): 
+                Context.error("Only anonymous structures are supported for DeepState at the moment.", Context.currentPos());
+                /*
                 //trace("=== Building DeepState from instance " + t + " with params " + params);
                 testTypeFields(t.get().name, type);
+                */
 
             case TType(t, params):
                 var realType : DefType = t.get();
-                var storeType = realType.type;
                 //trace("=== Building DeepState from typedef " + t + " with params " + params);
-                testTypeFields(realType.name, storeType);
+                testTypeFields(realType.name, realType.type);
 
             case x:
                 Context.error("Unsupported type for DeepState: " + x, Context.currentPos());
