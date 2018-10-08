@@ -54,6 +54,15 @@ class DeepStateTests extends buddy.SingleSuite {
                 },
                 timestamps: []
             };
+            var nextState : TestState = {
+                score: 1, 
+                person: {
+                    name: {
+                        firstName: "Allan", lastName: "Benberg"
+                    }
+                },
+                timestamps: [Date.now()]
+            };
 
             function testIdentity(newState : TestState) {
                 newState.should.be(store.state);
@@ -65,22 +74,12 @@ class DeepStateTests extends buddy.SingleSuite {
                 store = new TestStateStore(initialState);
             });
 
-            it("should replace the previous state when calling updateState", {
-                var nextState : TestState = {
-                    score: 1, 
-                    person: {
-                        name: {
-                            firstName: "Allan", lastName: "Benberg"
-                        }
-                    },
-                    timestamps: [Date.now()]
-                };
-
+            it("should update the whole state if specified", {
                 CompilationShould.failFor(
                     store.state = nextState
                 );
 
-                var newState = store.updateState(nextState);
+                var newState = store.updateIn(store.state, nextState);
 
                 newState.should.not.be(null);
                 newState.should.be(store.state);
@@ -89,6 +88,29 @@ class DeepStateTests extends buddy.SingleSuite {
                 newState.score.should.be(1);
                 newState.person.name.firstName.should.be("Allan");
                 newState.person.name.lastName.should.be("Benberg");
+            });
+
+            it("should not modify the first state object when multiple changes are made", {
+                var newState = store.update({name: 'test', updates: [
+                    { 
+                        path: "", 
+                        value: nextState
+                    },
+                    { 
+                        path: "person.name", 
+                        value: { firstName: "Allen", lastName: "Dulles" }
+                    }
+                ]});
+
+                testIdentity(newState);
+                newState.score.should.be(1);
+                newState.person.should.not.be(initialState.person);
+                newState.person.name.firstName.should.be("Allen");
+                newState.person.name.lastName.should.be("Dulles");
+
+                nextState.should.not.be(newState);
+                nextState.person.name.firstName.should.be("Allan");
+                nextState.person.name.lastName.should.be("Benberg");
             });
 
             it("should update fields in the middle of the state tree", {
@@ -159,11 +181,6 @@ class DeepStateTests extends buddy.SingleSuite {
                 newState.timestamps.should.not.be(timestamps);
             });
 
-            it("should not allow empty string as field key", {
-                store.update.bind({name: "test", updates: [{path: "", value: initialState}]})
-                    .should.throwType(String);
-            });
-
             it("should throw if a field key doesn't exist in the state tree", {
                 store.update.bind({name: "test", updates: [{path: "some", value: "test"}]})
                     .should.throwType(String);
@@ -173,13 +190,6 @@ class DeepStateTests extends buddy.SingleSuite {
             });
 
             describe("The updateIn method", {
-                it("should not be able to update the whole state", {
-                    (function() { 
-                        var storeVar : TestStateStore = store;
-                        storeVar.updateIn(storeVar.state, initialState); 
-                    }).should.throwType(String);
-                });
-
                 it("should use a macro for type safety", {
                     var storeVar : TestStateStore = store;
                     var newState = storeVar.updateIn(storeVar.state.person.name.firstName, "Allan");
@@ -195,6 +205,21 @@ class DeepStateTests extends buddy.SingleSuite {
                 it("should unify between arguments for type safety", {
                     var storeVar : TestStateStore = store;
                     CompilationShould.failFor(storeVar.updateIn(storeVar.state.score, "Not an Int"));
+                });
+
+                it("should update fields when given a partial object", {
+                    var newState = store.updateIn(store.state.person.name, {firstName: "Marcus"});
+
+                    testIdentity(newState);
+                    newState.person.name.firstName.should.be("Marcus");
+
+                    CompilationShould.failFor(
+                        store.updateIn(store.state.person.name, {firstName: 123})
+                    );
+
+                    CompilationShould.failFor(
+                        store.updateIn(store.state.person.name, {doesntExist: 123})
+                    );
                 });
             });
         });
