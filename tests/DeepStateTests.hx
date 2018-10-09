@@ -33,6 +33,12 @@ class TestStateStore extends DeepState<TestState> {
     public function addScore(add : Int) {
         return this.updateIn(state.score, state.score + add);
     }
+
+    override public function update(action : DeepState.Action) {
+        var newState = super.update(action);
+        trace("Updated!");
+        return newState;
+    }
 }
 
 /*
@@ -91,7 +97,7 @@ class DeepStateTests extends buddy.SingleSuite {
             });
 
             it("should not modify the first state object when multiple changes are made", {
-                var newState = store.update({name: 'test', updates: [
+                var newState = store.update({type: 'test', updates: [
                     { 
                         path: "", 
                         value: nextState
@@ -114,7 +120,7 @@ class DeepStateTests extends buddy.SingleSuite {
             });
 
             it("should update fields in the middle of the state tree", {
-                var newState = store.update({name: 'test', updates: [{ 
+                var newState = store.update({type: 'test', updates: [{ 
                     path: "person.name", 
                     value: { firstName: "Allan", lastName: "Benberg" }
                 }]});
@@ -127,7 +133,7 @@ class DeepStateTests extends buddy.SingleSuite {
             });
 
             it("should update fields at the end of the state tree", {
-                var newState = store.update({name: 'test', updates: [{ 
+                var newState = store.update({type: 'test', updates: [{ 
                     path: "person.name.firstName", 
                     value: "Wallan"
                 }]});
@@ -148,7 +154,7 @@ class DeepStateTests extends buddy.SingleSuite {
             });
 
             it("should update fields at the top of the state tree", {
-                var newState = store.update({name: 'test', updates: [{ 
+                var newState = store.update({type: 'test', updates: [{ 
                     path: "score", 
                     value: 10
                 }]});
@@ -165,7 +171,7 @@ class DeepStateTests extends buddy.SingleSuite {
 
             it("should update several fields if specified in the Action", {
                 var timestamps = store.state.timestamps;
-                var newState = store.update({name: 'test_multiple', updates: [
+                var newState = store.update({type: 'test_multiple', updates: [
                     { path: "score", value: 100 },
                     { path: "person.name.lastName", value: "Benberg" },
                     { path: "timestamps", value: timestamps.push(Date.now()) }
@@ -182,10 +188,10 @@ class DeepStateTests extends buddy.SingleSuite {
             });
 
             it("should throw if a field key doesn't exist in the state tree", {
-                store.update.bind({name: "test", updates: [{path: "some", value: "test"}]})
+                store.update.bind({type: "test", updates: [{path: "some", value: "test"}]})
                     .should.throwType(String);
 
-                store.update.bind({name: "test", updates: [{path: "some.missing.field", value: 10}]})
+                store.update.bind({type: "test", updates: [{path: "some.missing.field", value: 10}]})
                     .should.throwType(String);
             });
 

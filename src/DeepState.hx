@@ -8,7 +8,7 @@ using haxe.macro.Tools;
 using Reflect;
 
 typedef Action = {
-    final name : String;
+    final type : String;
     final updates : ImmutableArray<{
         final path : String;
         final value : Any;
@@ -131,7 +131,7 @@ class DeepState<T> {
         var actionName = Context.getLocalMethod();
 
         return macro $store.update({
-            name: $v{actionName},
+            type: $v{actionName},
             updates: $a{updates}
         });
     }
