@@ -23,20 +23,22 @@ typedef GameState = {
     final timestamps : ds.ImmutableArray<Date>;
 }
 
-// Extend DeepState<T>, where T is your state structure.
-class TestState extends DeepState<GameState> {
+// Create a Contained Immutable Asset (CIA) by extending DeepState<T>,
+// where T is your state structure.
+class CIA extends DeepState<GameState> {
     public function new(initialState) super(initialState);
 
     // If you prefer, group actions/reducers in this class
     public function addScore(add : Int) {
-        return this.updateIn(state.score, state.score + add);
+        var score = state.score;
+        return this.updateIn(score, score + add);
     }
 }
 
 class Main {
     static function main() {
-        // Create your Contained Immutable Asset, with an initial state
-        var CIA = new TestState({
+        // Instantiate your Contained Immutable Asset with an initial state
+        var asset = new CIA({
             score: 0,
             player: {
                 firstName: "Wall",
@@ -46,16 +48,24 @@ class Main {
         });
 
         // Access state as you expect:
-        var score = CIA.state.score;
+        var score = asset.state.score;
         trace(score);
 
         // Update the state by the asset methods, or directly
-        var newState = CIA.addScore(1);
+        var newState = asset.addScore(1);
         trace(newState.score);
 
-        // Reset score
-        CIA.updateIn(CIA.state.score, 0);
-        trace(CIA.state.score);
+        // The updateIn method can be passed a normal value for direct updates
+        asset.updateIn(asset.state.score, 0);
+        trace(asset.state.score);
+
+        // Or a lambda function
+        asset.updateIn(asset.state.score, score -> score + 1);
+        trace(asset.state.score);
+
+        // Or a partial object
+        asset.updateIn(asset.state.player, {firstName: "Allen"});
+        trace(asset.state.player);
     }
 }
 ```

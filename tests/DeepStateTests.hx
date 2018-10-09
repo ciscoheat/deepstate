@@ -2,6 +2,8 @@ import haxe.ds.Option;
 import buddy.CompilationShould;
 import ds.*;
 
+import haxe.macro.Expr;
+
 using buddy.Should;
 
 typedef TestState = {
@@ -31,13 +33,11 @@ class TestStateStore extends DeepState<TestState> {
     public function new(initialState) super(initialState);
 
     public function addScore(add : Int) {
-        return this.updateIn(state.score, state.score + add);
+        return updateIn(state.score, state.score + add);
     }
 
-    override public function update(action : DeepState.Action) {
-        var newState = super.update(action);
-        trace("Updated!");
-        return newState;
+    public function changeFirstName(firstName) {
+        return updateIn(state.person.name.firstName, firstName);
     }
 }
 
@@ -85,7 +85,10 @@ class DeepStateTests extends buddy.SingleSuite {
                     store.state = nextState
                 );
 
-                var newState = store.updateIn(store.state, nextState);
+                var newState = store.update({
+                    type: "full_update", 
+                    updates: [{path: "", value: nextState}]
+                });
 
                 newState.should.not.be(null);
                 newState.should.be(store.state);
@@ -196,21 +199,10 @@ class DeepStateTests extends buddy.SingleSuite {
             });
 
             describe("The updateIn method", {
-                it("should be able to update a field using a single value", {
-                    var storeVar : TestStateStore = store;
-                    var newState = storeVar.updateIn(storeVar.state.person.name.firstName, "Allan");
-
-                    CompilationShould.failFor(storeVar.updateIn(storeVar.state.notAField, "Allan"));
-
-                    testIdentity(newState);
-                    newState.score.should.be(0);
-                    newState.person.name.firstName.should.be("Allan");
-                    newState.person.name.lastName.should.be("Enberg");
-                });
-
-                it("should unify between arguments for type safety", {
-                    var storeVar : TestStateStore = store;
-                    CompilationShould.failFor(storeVar.updateIn(storeVar.state.score, "Not an Int"));
+                it("should use a lambda function to update a field if passed a function", {
+                    store.updateIn(store.state.score, score -> 1);
+                    store.updateIn(store.state.score, score -> score + 2);
+                    store.state.score.should.be(3);
                 });
 
                 it("should update fields when given a partial object", {
@@ -220,12 +212,42 @@ class DeepStateTests extends buddy.SingleSuite {
                     newState.person.name.firstName.should.be("Marcus");
 
                     CompilationShould.failFor(
-                        store.updateIn(store.state.person.name, {firstName: 123})
+                        store.updateField(store.state.person.name, {firstName: 123})
                     );
 
                     CompilationShould.failFor(
-                        store.updateIn(store.state.person.name, {doesntExist: 123})
+                        store.updateField(store.state.person.name, {doesntExist: 123})
                     );
+                });
+
+                it("should be able to update a field if passed a single value", {
+                    var storeVar : TestStateStore = store;
+                    var newState = storeVar.changeFirstName("Allan");
+                    //var newState = storeVar.updateField(storeVar.state.person.name.firstName, "Allan");
+
+                    CompilationShould.failFor(storeVar.updateField(storeVar.state.notAField, "Allan"));
+
+                    testIdentity(newState);
+                    newState.score.should.be(0);
+                    newState.person.name.firstName.should.be("Allan");
+                    newState.person.name.lastName.should.be("Enberg");
+                });
+
+                it("should update the whole state if specified", {
+                    var newState = store.updateIn(store.state, nextState);
+
+                    newState.should.not.be(null);
+                    newState.should.be(store.state);
+                    newState.timestamps[0].getTime().should.beGreaterThan(0);
+
+                    newState.score.should.be(1);
+                    newState.person.name.firstName.should.be("Allan");
+                    newState.person.name.lastName.should.be("Benberg");
+                });
+
+
+                it("should unify between arguments for type safety", {
+                    CompilationShould.failFor(store.changeFirstName(123));
                 });
             });
         });

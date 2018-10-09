@@ -43,6 +43,7 @@ class DeepState<T> {
         return this.state = newState;
     }
 
+    // Make a deep copy of a new state object.
     function mutateStateCopy(newState : DynamicAccess<Dynamic>, updatePath : DeepStateNode, newValue : Any) : Void {
         var nodeName = updatePath.name();
         if(!newState.exists(nodeName)) throw "Key not found in state: " + updatePath;
@@ -60,67 +61,36 @@ class DeepState<T> {
 
     #end
 
-    macro public function updateIn(store : ExprOf<DeepState<Dynamic>>, path : Expr, newValue : Expr) {
+    #if macro
+    static function unifies(type : ComplexType, value : Expr) return try {
+        // Test if types unify by trying to assign a temp var with the new value
+        Context.typeof(macro var _DStest : $type = $value);
+        true;
+    } catch(e : Dynamic) false;
 
-        function unifies(type : ComplexType, value : Expr) return try {
-            // Test if types unify by trying to assign a temp var with the new value
-            Context.typeof(macro var _DStest : $type = $value);
-            true;
-        } catch(e : Dynamic) false;
-
-        function stripPathPrefix(pathStr : String) {
-            // Strip "store.state" from path
-            for(v in Context.getLocalTVars()) {
-                var pathTest = '${v.name}.';
-                if(pathStr.indexOf(pathTest) == 0) {
-                    pathStr = pathStr.substr(pathTest.length);
-                    break;
-                }
+    static function stripPathPrefix(pathStr : String) {
+        // Strip "store.state" from path
+        for(v in Context.getLocalTVars()) {
+            var pathTest = '${v.name}.';
+            if(pathStr.indexOf(pathTest) == 0) {
+                pathStr = pathStr.substr(pathTest.length);
+                break;
             }
-
-            // Strip "state."
-            return if(pathStr.indexOf("state.") == 0)
-                pathStr.substr(6);
-            else if(pathStr == "state") {
-                // If only "state" is left, return empty string to make a full update.
-                "";
-            } else
-                pathStr;
         }
 
-        var pathType = try Context.typeof(path)
-        catch(e : Dynamic) {
-            Context.error("Cannot find field or its type in state.", path.pos);
-        }
+        // Strip "state."
+        return if(pathStr.indexOf("state.") == 0)
+            pathStr.substr(6);
+        else if(pathStr == "state") {
+            // If only "state" is left, return empty string to make a full update.
+            "";
+        } else
+            pathStr;
+    }
 
+    static function _updateField(store : ExprOf<DeepState<Dynamic>>, path : Expr, pathType : haxe.macro.Type, newValue : Expr) {
         var updates = if(!unifies(Context.toComplexType(pathType), newValue)) {
-            // Direct unification failed. If value is an anonymous object, test if
-            // all fields unify with respective type.
-            switch newValue.expr {
-                case EObjectDecl(fields): [for(f in fields) {
-                    var fieldName = f.field;
-                    var fieldPath = macro $path.$fieldName;
-
-                    var fieldType = try Context.typeof(fieldPath)
-                    catch(e : Dynamic) {
-                        Context.error("Cannot determine field type, try providing a type hint.", f.expr.pos);
-                    }
-
-                    if(!unifies(Context.toComplexType(fieldType), f.expr)) {
-                        Context.error("Value should be of type " + fieldType.toString(), f.expr.pos);
-                    }
-
-                    var strippedPath = stripPathPrefix(fieldPath.toString());
-
-                    // Add an update
-                    macro {
-                        path: $v{strippedPath},
-                        value: ${f.expr}
-                    }
-                }];
-                case _:
-                    Context.error("Value should be of type " + pathType.toString(), newValue.pos);
-            }
+            Context.error("Value should be of type " + pathType.toString(), newValue.pos);
         } else {
             [macro {
                 path: $v{stripPathPrefix(path.toString())},
@@ -128,12 +98,73 @@ class DeepState<T> {
             }];
         }
 
-        var actionName = Context.getLocalMethod();
-
         return macro $store.update({
-            type: $v{actionName},
+            type: $v{Context.getLocalMethod()},
             updates: $a{updates}
         });
+    }
+
+    static function _updateFunc(store : ExprOf<DeepState<Dynamic>>, path : Expr, pathType : haxe.macro.Type, newValue : Expr) {
+        var complexPathType = Context.toComplexType(pathType);
+        
+        return switch newValue.expr {
+            case EFunction(name, f) if(f.args.length == 1):
+                f.ret = f.args[0].type = complexPathType;
+                var funcCall = {
+                    expr: ECall(newValue, [path]),
+                    pos: newValue.pos
+                }
+                _updateField(store, path, pathType, funcCall);
+            case x:
+                Context.error('Function must take an argument of type $pathType and return the same.', newValue.pos);
+        }
+    }
+
+    static function _updatePartial(store : ExprOf<DeepState<Dynamic>>, path : Expr, pathType : haxe.macro.Type, newValue : Expr) {
+        var updates = switch newValue.expr {
+            case EObjectDecl(fields): [for(f in fields) {
+                var fieldName = f.field;
+                var fieldPath = macro $path.$fieldName;
+
+                var fieldType = try Context.typeof(fieldPath)
+                catch(e : Dynamic) {
+                    Context.error("Cannot determine field type, try providing a type hint.", f.expr.pos);
+                }
+
+                if(!unifies(Context.toComplexType(fieldType), f.expr)) {
+                    Context.error("Value should be of type " + fieldType.toString(), f.expr.pos);
+                }
+
+                var strippedPath = stripPathPrefix(fieldPath.toString());
+
+                // Add an update
+                macro {
+                    path: $v{strippedPath},
+                    value: ${f.expr}
+                }
+            }];
+            case x:
+                Context.error("Value must be an anonymous object with matching fields.", newValue.pos);
+        }
+
+        return macro $store.update({
+            type: $v{Context.getLocalMethod()},
+            updates: $a{updates}
+        });
+    }
+    #end
+
+    macro public function updateIn(store : ExprOf<DeepState<Dynamic>>, path : Expr, newValue : Expr) {
+        var pathType = try Context.typeof(path)
+        catch(e : Dynamic) {
+            Context.error("Cannot find field or its type in state.", path.pos);
+        }
+
+        return switch newValue.expr {
+            case EObjectDecl(fields): _updatePartial(store, path, pathType, newValue);
+            case EFunction(name, f): _updateFunc(store, path, pathType, newValue);
+            case _: _updateField(store, path, pathType, newValue);
+        }
     }
 }
 
