@@ -190,7 +190,7 @@ class DeepStateTests extends buddy.SingleSuite {
             });
 
             describe("The updateIn method", {
-                it("should use a macro for type safety", {
+                it("should be able to update a field using a single value", {
                     var storeVar : TestStateStore = store;
                     var newState = storeVar.updateIn(storeVar.state.person.name.firstName, "Allan");
 
