@@ -5,7 +5,9 @@ import haxe.macro.Expr;
 import ds.ImmutableArray;
 
 using haxe.macro.Tools;
+using haxe.macro.ExprTools.ExprArrayTools;
 using Reflect;
+using Lambda;
 
 typedef Action = {
     final type : String;
@@ -68,8 +70,9 @@ class DeepState<T> {
         true;
     } catch(e : Dynamic) false;
 
-    static function stripPathPrefix(pathStr : String) {
+    static function stripPathPrefix(path : Expr) {
         // Strip "store.state" from path
+        var pathStr = path.toString();
         for(v in Context.getLocalTVars()) {
             var pathTest = '${v.name}.';
             if(pathStr.indexOf(pathTest) == 0) {
@@ -88,83 +91,111 @@ class DeepState<T> {
             pathStr;
     }
 
-    static function _updateField(store : ExprOf<DeepState<Dynamic>>, path : Expr, pathType : haxe.macro.Type, newValue : Expr) {
-        var updates = if(!unifies(Context.toComplexType(pathType), newValue)) {
+    static function _updateField(path : Expr, pathType : haxe.macro.Type, newValue : Expr) {
+        return if(!unifies(Context.toComplexType(pathType), newValue)) {
             Context.error("Value should be of type " + pathType.toString(), newValue.pos);
         } else {
             [macro {
-                path: $v{stripPathPrefix(path.toString())},
+                path: $v{stripPathPrefix(path)},
                 value: $newValue
             }];
         }
-
-        return macro $store.update({
-            type: $v{Context.getLocalMethod()},
-            updates: $a{updates}
-        });
     }
 
-    static function _updateFunc(store : ExprOf<DeepState<Dynamic>>, path : Expr, pathType : haxe.macro.Type, newValue : Expr) {
-        var complexPathType = Context.toComplexType(pathType);
-        
+    static function _updateFunc(path : Expr, pathType : haxe.macro.Type, newValue : Expr) {
         return switch newValue.expr {
             case EFunction(name, f) if(f.args.length == 1):
-                f.ret = f.args[0].type = complexPathType;
+                f.ret = f.args[0].type = Context.toComplexType(pathType);
                 var funcCall = {
                     expr: ECall(newValue, [path]),
                     pos: newValue.pos
                 }
-                _updateField(store, path, pathType, funcCall);
+                _updateField(path, pathType, funcCall);
             case x:
                 Context.error('Function must take an argument of type $pathType and return the same.', newValue.pos);
         }
     }
 
-    static function _updatePartial(store : ExprOf<DeepState<Dynamic>>, path : Expr, pathType : haxe.macro.Type, newValue : Expr) {
-        var updates = switch newValue.expr {
-            case EObjectDecl(fields): [for(f in fields) {
-                var fieldName = f.field;
-                var fieldPath = macro $path.$fieldName;
+    static function _updatePartial(path : Expr, pathType : haxe.macro.Type, fields : Array<ObjectField>) {
+        return [for(f in fields) {
+            var fieldName = f.field;
+            var fieldPath = macro $path.$fieldName;
 
-                var fieldType = try Context.typeof(fieldPath)
-                catch(e : Dynamic) {
-                    Context.error("Cannot determine field type, try providing a type hint.", f.expr.pos);
-                }
+            var fieldType = try Context.typeof(fieldPath)
+            catch(e : Dynamic) {
+                Context.error("Cannot determine field type, try providing a type hint.", f.expr.pos);
+            }
 
-                if(!unifies(Context.toComplexType(fieldType), f.expr)) {
-                    Context.error("Value should be of type " + fieldType.toString(), f.expr.pos);
-                }
+            if(!unifies(Context.toComplexType(fieldType), f.expr)) {
+                Context.error("Value should be of type " + fieldType.toString(), f.expr.pos);
+            }
 
-                var strippedPath = stripPathPrefix(fieldPath.toString());
+            var strippedPath = stripPathPrefix(fieldPath);
 
-                // Add an update
-                macro {
-                    path: $v{strippedPath},
-                    value: ${f.expr}
-                }
-            }];
-            case x:
-                Context.error("Value must be an anonymous object with matching fields.", newValue.pos);
-        }
-
-        return macro $store.update({
-            type: $v{Context.getLocalMethod()},
-            updates: $a{updates}
-        });
+            // Create the update
+            macro {
+                path: $v{strippedPath},
+                value: ${f.expr}
+            }
+        }];
     }
-    #end
 
-    macro public function updateIn(store : ExprOf<DeepState<Dynamic>>, path : Expr, newValue : Expr) {
+    static function _updateIn(path : Expr, newValue : Expr) {
         var pathType = try Context.typeof(path)
         catch(e : Dynamic) {
             Context.error("Cannot find field or its type in state.", path.pos);
         }
 
         return switch newValue.expr {
-            case EObjectDecl(fields): _updatePartial(store, path, pathType, newValue);
-            case EFunction(name, f): _updateFunc(store, path, pathType, newValue);
-            case _: _updateField(store, path, pathType, newValue);
+            case EObjectDecl(fields) if(!unifies(Context.toComplexType(pathType), newValue)): 
+                // Update with a partial object
+                _updatePartial(path, pathType, fields);
+
+            case EFunction(name, f):
+                // Update with a function/lambda expression 
+                _updateFunc(path, pathType, newValue);
+            
+            case _: 
+                // Update any other value
+                _updateField(path, pathType, newValue);
         }
+    }
+
+    static function createAction(store : ExprOf<DeepState<Dynamic>>, actionType : Null<String>, updates : Array<Expr>) : Expr {
+        var type = actionType == null 
+            ? Context.getLocalClass().get().name + "." + Context.getLocalMethod() 
+            : actionType;
+
+        return macro $store.update({
+            type: $v{type},
+            updates: $a{updates}
+        });
+    }    
+    #end
+
+    macro public function updateMap(store : ExprOf<DeepState<Dynamic>>, map : Expr, actionType : String = null) {
+        function error(e) {
+            Context.error("Value must be an array map declaration: [K => V, ...]", e.pos);
+        }
+
+        var updates = switch map.expr {
+            case EArrayDecl(values): values.flatMap(e -> {
+                switch e.expr {
+                    case EBinop(op, e1, e2) if(op == OpArrow):
+                        _updateIn(e1, e2);
+                    case _: 
+                        error(e); null;
+                }
+            }).array();
+            
+            case _: error(map); null;
+        }
+
+        return createAction(store, actionType, updates);
+    }
+
+    macro public function updateIn(store : ExprOf<DeepState<Dynamic>>, path : Expr, newValue : Expr, actionType : String = null) {
+        return createAction(store, actionType, _updateIn(path, newValue));
     }
 }
 
@@ -176,7 +207,7 @@ private abstract DeepStateNode(ImmutableArray<String>) {
 
     @:from
     public static function fromString(s : String) {
-        return new DeepStateNode(new ImmutableArray(s.split(".")));
+        return new DeepStateNode(s.split("."));
     }
 
     @:to
@@ -188,7 +219,7 @@ private abstract DeepStateNode(ImmutableArray<String>) {
 
     public function next() : DeepStateNode {
         if(!hasNext()) throw "DeepStateNode: No more nodes."
-        else return new DeepStateNode(new ImmutableArray(this.slice(1)));
+        else return new DeepStateNode(this.slice(1));
     }
 
     public function isNextLeaf() {
