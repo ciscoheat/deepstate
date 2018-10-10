@@ -6,6 +6,8 @@ abstract ImmutableArray<T>(Array<T>) from Array<T> {
 
     public inline function new(array : Array<T>) this = array;
 
+    @:to public function toIterable() : Iterable<T> return this;
+
     public function insert(pos : Int, x : T) : ImmutableArray<T> {
         var newArray = this.copy();
         newArray.insert(pos, x);

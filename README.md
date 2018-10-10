@@ -23,15 +23,15 @@ typedef GameState = {
     final timestamps : ds.ImmutableArray<Date>;
 }
 
-// Create a Contained Immutable Asset (CIA) by extending DeepState<T>,
+// Create a Contained Immutable Asset by extending DeepState<T>,
 // where T is your state structure.
 class CIA extends DeepState<GameState> {
-    public function new(initialState) super(initialState);
+    public function new(initialState, middlewares = null) 
+        super(initialState, middlewares);
 
-    // If you prefer, group actions/reducers in this class
+    // Group actions/reducers in this class
     public function addScore(add : Int) {
-        var score = state.score;
-        return this.updateIn(score, score + add);
+        return this.updateIn(state.score, state.score + add);
     }
 }
 
@@ -82,11 +82,36 @@ class Main {
 
 `haxe -x Main -lib deepstate`
 
+## Middleware
+
+A simple generic logging example:
+
+```haxe
+class MiddlewareLog {
+    public function new() {}
+
+    public var logs(default, null) = new Array<{state: Dynamic, type: String}>();
+
+    public function log(state: Dynamic, next : Action -> Dynamic, action : Action) : Dynamic {
+        var newState = next(action);
+        logs.push({state: newState, type: action.type});
+        return newState;
+    }
+}
+```
+
+Which can be used in the asset as such:
+
+```haxe
+var logger = new MiddlewareLog();
+var asset = new CIA(initialState, [logger.log]);
+```
+
 ## Roadmap
 
 The project has just started, so assume API changes. The aim is to support at least the following:
 
-- [ ] Middleware/plugins
+- [x] Middleware
 - [ ] Not just anonymous structures, but DataClass and objects with a Map-like interface
 - [ ] Your choice! Create an issue to join in.
 

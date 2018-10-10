@@ -30,7 +30,8 @@ class DataClassState implements DataClass {
 ///////////////////////////////////////////////////////////
 
 class TestStateStore extends DeepState<TestState> {
-    public function new(initialState) super(initialState);
+    public function new(initialState, middlewares = null) 
+        super(initialState, middlewares);
 
     public function addScore(add : Int) {
         return updateIn(state.score, state.score + add);
@@ -47,29 +48,60 @@ class DataClassStore extends DeepState<DataClassState> {
 }
 */
 
+class MiddlewareLog {
+    public function new() {}
+
+    public static var logCount = new Array<String>();
+
+    public var logs(default, null) = new Array<{state: TestState, type: String}>();
+
+    public function log(state: TestState, next : Action -> TestState, action : Action) : TestState {
+        var nextState = next(action);
+        logs.push({state: nextState, type: action.type});
+        logCount.push("MiddlewareLog");
+        return nextState;
+    }
+}
+
+class MiddlewareAlert {
+    public function new() {}
+
+    public var alerts(default, null) = 0;
+
+    public function alertOn(actionType : String) {
+        return function(state: Dynamic, next : Action -> Dynamic, action : Action) {
+            if(action.type == actionType) {
+                alerts++;
+                MiddlewareLog.logCount.push("MiddlewareAlert");
+            }
+            return next(action);
+        }
+    }
+}
+
 ///////////////////////////////////////////////////////////
 
 class DeepStateTests extends buddy.SingleSuite {
     public function new() {
-        describe("The Deep State", {
-            var store : TestStateStore;
-            var initialState : TestState = {
-                score: 0,
-                person: {
-                    name: { firstName: "Wall", lastName: "Enberg"}
-                },
-                timestamps: []
-            };
-            var nextState : TestState = {
-                score: 1, 
-                person: {
-                    name: {
-                        firstName: "Allan", lastName: "Benberg"
-                    }
-                },
-                timestamps: [Date.now()]
-            };
+        var store : TestStateStore;
+        var initialState : TestState = {
+            score: 0,
+            person: {
+                name: { firstName: "Wall", lastName: "Enberg"}
+            },
+            timestamps: []
+        };
+        var nextState : TestState = {
+            score: 1, 
+            person: {
+                name: {
+                    firstName: "Allan", lastName: "Benberg"
+                }
+            },
+            timestamps: [Date.now()]
+        };
 
+        describe("The Deep State", {
             function testIdentity(newState : TestState) {
                 newState.should.be(store.state);
                 newState.should.not.be(null);
@@ -278,6 +310,37 @@ class DeepStateTests extends buddy.SingleSuite {
                 it("should unify between arguments for type safety", {
                     CompilationShould.failFor(store.changeFirstName(123));
                 });
+            });
+        });
+
+        /////////////////////////////////////////////////////////////
+
+        describe("Middleware", {
+            var logger : MiddlewareLog;
+            var alert : MiddlewareAlert;
+
+            beforeEach({
+                logger = new MiddlewareLog();
+                alert = new MiddlewareAlert();
+                store = new TestStateStore(initialState, [
+                    logger.log, 
+                    alert.alertOn("TestStateStore.addScore")
+                ]);
+                MiddlewareLog.logCount = [];
+            });
+
+            it("should be applied in the correct order", {
+                store.addScore(10);
+
+                logger.logs.length.should.be(1);
+                logger.logs[0].type.should.be("TestStateStore.addScore");
+                logger.logs[0].state.score.should.be(10);
+
+                alert.alerts.should.be(1);
+
+                MiddlewareLog.logCount.should.containExactly(["MiddlewareAlert", "MiddlewareLog"]);
+
+                store.state.score.should.be(10);
             });
         });
 

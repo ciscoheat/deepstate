@@ -2,47 +2,47 @@ import haxe.DynamicAccess;
 import haxe.macro.Context;
 import haxe.macro.Expr;
 
-import ds.ImmutableArray;
+import ds.*;
 
 using haxe.macro.Tools;
-using haxe.macro.ExprTools.ExprArrayTools;
 using Reflect;
 using Lambda;
-
-typedef Action = {
-    final type : String;
-    final updates : ImmutableArray<{
-        final path : String;
-        final value : Any;
-    }>;
-}
 
 @:autoBuild(ds.internal.DeepStateInfrastructure.build())
 class DeepState<T> {
     #if !macro
     public var state(default, null) : T;
+    var middlewares : ImmutableArray<Middleware<T>>;
 
-    function new(initialState : T) {
+    function new(initialState : T, middlewares : ImmutableArray<Middleware<T>> = null) {
         this.state = initialState;
+        this.middlewares = middlewares == null ? [] : middlewares;
     }
 
     public function update(action : Action) : T {
         // TODO: Handle Dataclass (create a copy method based on type)
-        var newState = if(action.updates.length == 1 && action.updates[0].path == "") {
-            // Special case, if updating the whole state
-            cast action.updates[0].value;
-        } else {
-            var copy = Reflect.copy(state);
-            for(a in action.updates) {
-                if(a.path == "") copy = cast Reflect.copy(a.value);
-                else mutateStateCopy(cast copy, a.path, a.value);
+        function updateState(action : Action) : T {
+            return if(action.updates.length == 1 && action.updates[0].path == "") {
+                // Special case, if updating the whole state
+                cast action.updates[0].value;
+            } else {
+                var copy = Reflect.copy(this.state);
+                for(a in action.updates) {
+                    if(a.path == "") copy = cast Reflect.copy(a.value);
+                    else mutateStateCopy(cast copy, a.path, a.value);
+                }
+                copy;
             }
-            copy;
         }
 
-        // TODO: Apply middleware
+        // Apply middleware
+        var dispatch : Action -> T = updateState;
 
-        return this.state = newState;
+        for(m in this.middlewares.reverse()) {
+            dispatch = m.bind(this.state, dispatch);
+        }
+
+        return this.state = dispatch(action);
     }
 
     // Make a deep copy of a new state object.
