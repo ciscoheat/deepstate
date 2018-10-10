@@ -66,6 +66,14 @@ class Main {
         // Or a partial object
         asset.updateIn(asset.state.player, {firstName: "Allen"});
         trace(asset.state.player);
+
+        // The updateMap method should be passed a map declaration, 
+        // for multiple updates in the same action
+        asset.updateMap([
+            asset.state.score => s -> s + 10,
+            asset.state.player.firstName => "John Foster"
+        ]);
+        trace(asset.state);
     }
 }
 ```
