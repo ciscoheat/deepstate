@@ -112,7 +112,13 @@ var asset = new CIA(initialState, [logger.log]);
 You can use `asset.subscribeTo` to listen to changes: 
 
 ```haxe
-asset.subscribeTo(asset.state.player, p -> trace('Player changed name to ${p.firstName} ${p.lastName}'));
+var unsubscribe = asset.subscribeTo(
+    asset.state.player, 
+    p -> trace('Player changed name to ${p.firstName} ${p.lastName}')
+);
+
+// Later, time to unsubscribe
+unsubscribe();
 ```
 
 Note that the listener function will only be called *upon changes*. So in this case, it won't be called if the score changed. If you want to listen to any change, subscribe to `asset.state` which will always change upon any update.
