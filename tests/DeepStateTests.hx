@@ -349,18 +349,40 @@ class DeepStateTests extends buddy.SingleSuite {
         describe("Observers", {
             it("should subscribe with the subscribe method", {
                 var newName : String = null;
-                var unsub = store.subscribe(state -> {
-                    var name = state.person.name;
+                var nameCalls = 0, lastNameCalls = 0;
+
+                var unsub = store.subscribeTo(store.state.person.name, name -> {
                     newName = name.firstName + " " + name.lastName;
+                    nameCalls++;
+                });
+
+                store.subscribeTo(store.state.person.name.lastName, lastName -> {
+                    lastNameCalls++;
                 });
 
                 store.changeFirstName("Allen");
                 newName.should.be("Allen Enberg");
+                nameCalls.should.be(1);
+                lastNameCalls.should.be(0);
 
-                unsub();
+                store.changeFirstName("Allen");
+                nameCalls.should.be(2);
+                lastNameCalls.should.be(0);
+
+                store.updateIn(store.state.person.name.lastName, "Dulles");
+                store.state.person.name.lastName.should.be("Dulles");
+                newName.should.be("Allen Dulles");
+                nameCalls.should.be(3);
+                lastNameCalls.should.be(1);
+
+                unsub(); // Unsubscribing from name changes
+
                 store.changeFirstName("John Foster");
                 store.state.person.name.firstName.should.be("John Foster");
-                newName.should.be("Allen Enberg");
+                store.state.person.name.lastName.should.be("Dulles");
+                newName.should.be("Allen Dulles");
+                nameCalls.should.be(3);
+                lastNameCalls.should.be(1);
             });
         });
 

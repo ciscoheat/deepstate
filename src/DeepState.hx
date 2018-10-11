@@ -14,7 +14,7 @@ class DeepState<T> {
     public var state(default, null) : T;
 
     final middlewares : ImmutableArray<Middleware<T>>;
-    final listeners : Array<T -> Void>;
+    final listeners : Array<{path: String, listener: Dynamic -> Void}>;
 
     function new(initialState : T, middlewares : ImmutableArray<Middleware<T>> = null) {
         this.state = initialState;
@@ -22,9 +22,9 @@ class DeepState<T> {
         this.listeners = [];
     }
 
-    public function subscribe(listener : T -> Void) : Void -> Void {
-        listeners.push(listener);
-        return function() listeners.remove(listener);
+    public function subscribe(subscription: {path: String, listener: Dynamic -> Void}) : Void -> Void {
+        listeners.push(subscription);
+        return function() listeners.remove(subscription);
     }
 
     public function update(action : Action) : T {
@@ -45,6 +45,9 @@ class DeepState<T> {
             }
         }
 
+        // Save for listeners
+        var previousState = this.state;
+
         // Apply middleware
         {
             var dispatch : Action -> T = updateState;
@@ -57,10 +60,23 @@ class DeepState<T> {
             this.state = dispatch(action);
         }
 
-        // Call subscribers/listeners
+        // Call listeners
         {
-            for(listen in this.listeners.copy()) 
-                listen(this.state);
+            function getFieldInState(state : T, path : String) {
+                if(path == "") return state;
+
+                var output : Dynamic = state;
+                for(p in path.split(".")) {
+                    output = Reflect.field(output, p);
+                }
+                return output;
+            }
+
+            for(l in this.listeners.copy()) {
+                var prevValue = getFieldInState(previousState, l.path);
+                var currentValue = getFieldInState(this.state, l.path);
+                if(prevValue != currentValue) l.listener(currentValue);
+            }
         }
 
         return this.state;
@@ -193,6 +209,24 @@ class DeepState<T> {
         });
     }    
     #end
+
+    macro public function subscribeTo(store : ExprOf<DeepState<Dynamic>>, path : Expr, listener : Expr) {
+        var pathType = try Context.typeof(path)
+        catch(e : Dynamic) {
+            Context.error("Cannot find field or its type in state.", path.pos);
+        }
+
+        return switch listener.expr {
+            case EFunction(_, f) if(f.args.length == 1):
+                f.args[0].type = Context.toComplexType(pathType);
+                macro $store.subscribe({
+                    path: $v{stripPathPrefix(path)},
+                    listener: $listener
+                });
+            case x:
+                Context.error('Function must take a single argument of type $pathType.', listener.pos);
+        }
+    }
 
     macro public function updateMap(store : ExprOf<DeepState<Dynamic>>, map : Expr, actionType : String = null) {
         function error(e) {

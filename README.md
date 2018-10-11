@@ -107,11 +107,22 @@ var logger = new MiddlewareLog();
 var asset = new CIA(initialState, [logger.log]);
 ```
 
+## Change listeners / Observers
+
+You can use `asset.subscribeTo` to listen to changes: 
+
+```haxe
+asset.subscribeTo(asset.state.player, p -> trace('Player changed name to ${p.firstName} ${p.lastName}'));
+```
+
+Note that the listener function will only be called *upon changes*. So in this case, it won't be called if the score changed. If you want to listen to any change, subscribe to `asset.state` which will always change upon any update.
+
 ## Roadmap
 
 The project has just started, so assume API changes. The aim is to support at least the following:
 
 - [x] Middleware
+- [x] Observable state
 - [ ] Not just anonymous structures, but DataClass and objects with a Map-like interface
 - [ ] Your choice! Create an issue to join in.
 
