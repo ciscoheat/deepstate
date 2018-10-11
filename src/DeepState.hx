@@ -67,6 +67,7 @@ class DeepState<T> {
 
                 var output : Dynamic = state;
                 for(p in path.split(".")) {
+                    if(!Reflect.hasField(output, p)) throw 'Field not found in state: $path';
                     output = Reflect.field(output, p);
                 }
                 return output;
@@ -85,7 +86,7 @@ class DeepState<T> {
     // Make a deep copy of a new state object.
     function mutateStateCopy(newState : DynamicAccess<Dynamic>, updatePath : DeepStateNode, newValue : Any) : Void {
         var nodeName = updatePath.name();
-        if(!newState.exists(nodeName)) throw "Key not found in state: " + updatePath;
+        if(!newState.exists(nodeName)) throw "Field not found in state: " + updatePath;
 
         //trace('Updating: $updatePath');
         if(!updatePath.hasNext()) {
