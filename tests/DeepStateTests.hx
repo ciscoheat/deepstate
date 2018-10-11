@@ -346,6 +346,26 @@ class DeepStateTests extends buddy.SingleSuite {
 
         /////////////////////////////////////////////////////////////
 
+        describe("Observers", {
+            it("should subscribe with the subscribe method", {
+                var newName : String = null;
+                var unsub = store.subscribe(state -> {
+                    var name = state.person.name;
+                    newName = name.firstName + " " + name.lastName;
+                });
+
+                store.changeFirstName("Allen");
+                newName.should.be("Allen Enberg");
+
+                unsub();
+                store.changeFirstName("John Foster");
+                store.state.person.name.firstName.should.be("John Foster");
+                newName.should.be("Allen Enberg");
+            });
+        });
+
+        /////////////////////////////////////////////////////////////
+
         describe("Immutable datastructures", {
             describe("ImmutableMap", {
                 it("should work with array access", {

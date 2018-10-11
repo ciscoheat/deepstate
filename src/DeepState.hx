@@ -12,15 +12,25 @@ using Lambda;
 class DeepState<T> {
     #if !macro
     public var state(default, null) : T;
-    var middlewares : ImmutableArray<Middleware<T>>;
+
+    final middlewares : ImmutableArray<Middleware<T>>;
+    final listeners : Array<T -> Void>;
 
     function new(initialState : T, middlewares : ImmutableArray<Middleware<T>> = null) {
         this.state = initialState;
         this.middlewares = middlewares == null ? [] : middlewares;
+        this.listeners = [];
+    }
+
+    public function subscribe(listener : T -> Void) : Void -> Void {
+        listeners.push(listener);
+        return function() listeners.remove(listener);
     }
 
     public function update(action : Action) : T {
         // TODO: Handle Dataclass (create a copy method based on type)
+
+        // Last function in middleware chain - create a new state.
         function updateState(action : Action) : T {
             return if(action.updates.length == 1 && action.updates[0].path == "") {
                 // Special case, if updating the whole state
@@ -36,13 +46,24 @@ class DeepState<T> {
         }
 
         // Apply middleware
-        var dispatch : Action -> T = updateState;
+        {
+            var dispatch : Action -> T = updateState;
 
-        for(m in this.middlewares.reverse()) {
-            dispatch = m.bind(this.state, dispatch);
+            for(m in this.middlewares.reverse()) {
+                dispatch = m.bind(this.state, dispatch);
+            }
+
+            // Set final state for this update
+            this.state = dispatch(action);
         }
 
-        return this.state = dispatch(action);
+        // Call subscribers/listeners
+        {
+            for(listen in this.listeners.copy()) 
+                listen(this.state);
+        }
+
+        return this.state;
     }
 
     // Make a deep copy of a new state object.
