@@ -19,8 +19,10 @@ typedef GameState = {
         final firstName : String;
         final lastName : String;
     }
-    // For Arrays, use ds.ImmutableArray
+    // For Arrays and Lists, use ImmutableArray and ImmutableList
     final timestamps : ds.ImmutableArray<Date>;
+    // For json structures:
+    final json : ds.ImmutableJson;
 }
 
 // Create a Contained Immutable Asset by extending DeepState<T>,
@@ -119,7 +121,7 @@ var unsubscribe = asset.subscribeTo(
 
 // Use an array to listen to multiple changes
 asset.subscribeTo(
-    [asset.state.player, asset.state.score] 
+    asset.state.player, asset.state.score, 
     (player, score) -> trace('Player or score updated.')
 );
 

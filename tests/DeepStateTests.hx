@@ -396,7 +396,7 @@ class DeepStateTests extends buddy.SingleSuite {
                 var multiCalls = 0;
 
                 asset.subscribeTo(
-                    [asset.state.person.name, asset.state.score], 
+                    asset.state.person.name, asset.state.score,
                     (name, score) -> {
                         newName = name.firstName + " " + name.lastName + ' (${asset.state.score})';
                         multiCalls++;

@@ -218,11 +218,8 @@ class DeepState<T> {
     }    
     #end
 
-    macro public function subscribeTo(store : ExprOf<DeepState<Dynamic>>, path : Expr, listener : Expr) {
-        var paths = switch path.expr {
-            case EArrayDecl(fields): fields;
-            case _: [path];
-        };
+    macro public function subscribeTo(store : ExprOf<DeepState<Dynamic>>, paths : Array<Expr>) {
+        var listener = paths.pop();
 
         var pathTypes = [for(p in paths) {
             try Context.typeof(p)
