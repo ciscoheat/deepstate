@@ -117,11 +117,17 @@ var unsubscribe = asset.subscribeTo(
     p -> trace('Player changed name to ${p.firstName} ${p.lastName}')
 );
 
+// Use an array to listen to multiple changes
+asset.subscribeTo(
+    [asset.state.player, asset.state.score] 
+    (player, score) -> trace('Player or score updated.')
+);
+
 // Later, time to unsubscribe
 unsubscribe();
 ```
 
-Note that the listener function will only be called *upon changes*. So in this case, it won't be called if the score changed. If you want to listen to any change, subscribe to `asset.state` which will always change upon any update.
+Note that the listener function will only be called upon changes *on the selected parts of the state tree*. So in the first example, it won't be called if the score changed. If you want to listen to every change, subscribe to `asset.state`, which will always change upon any update.
 
 ## Roadmap
 

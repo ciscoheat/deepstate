@@ -1,6 +1,7 @@
 import haxe.DynamicAccess;
 import haxe.macro.Context;
 import haxe.macro.Expr;
+import haxe.Constraints;
 
 import ds.*;
 
@@ -14,7 +15,7 @@ class DeepState<T> {
     public var state(default, null) : T;
 
     final middlewares : ImmutableArray<Middleware<T>>;
-    final listeners : Array<{path: String, listener: Dynamic -> Void}>;
+    final listeners : Array<Subscription>;
 
     function new(initialState : T, middlewares : ImmutableArray<Middleware<T>> = null) {
         this.state = initialState;
@@ -22,7 +23,7 @@ class DeepState<T> {
         this.listeners = [];
     }
 
-    public function subscribe(subscription: {path: String, listener: Dynamic -> Void}) : Void -> Void {
+    public function subscribe(subscription: Subscription) : Void -> Void {
         listeners.push(subscription);
         return function() listeners.remove(subscription);
     }
@@ -49,7 +50,7 @@ class DeepState<T> {
         var previousState = this.state;
 
         // Apply middleware
-        {
+        this.state = {
             var dispatch : Action -> T = updateState;
 
             for(m in this.middlewares.reverse()) {
@@ -57,7 +58,7 @@ class DeepState<T> {
             }
 
             // Set final state for this update
-            this.state = dispatch(action);
+            dispatch(action);
         }
 
         // Call listeners
@@ -74,9 +75,15 @@ class DeepState<T> {
             }
 
             for(l in this.listeners.copy()) {
-                var prevValue = getFieldInState(previousState, l.path);
-                var currentValue = getFieldInState(this.state, l.path);
-                if(prevValue != currentValue) l.listener(currentValue);
+                var shouldCall = false;
+                var parameters : Array<Dynamic> = [];
+                for(path in l.paths) {
+                    var prevValue = getFieldInState(previousState, path);
+                    var currentValue = getFieldInState(this.state, path);
+                    shouldCall = shouldCall || prevValue != currentValue;
+                    parameters.push(currentValue);
+                }
+                if(shouldCall) Reflect.callMethod(null, l.listener, parameters);
             }
         }
 
@@ -212,20 +219,34 @@ class DeepState<T> {
     #end
 
     macro public function subscribeTo(store : ExprOf<DeepState<Dynamic>>, path : Expr, listener : Expr) {
-        var pathType = try Context.typeof(path)
-        catch(e : Dynamic) {
-            Context.error("Cannot find field or its type in state.", path.pos);
-        }
+        var paths = switch path.expr {
+            case EArrayDecl(fields): fields;
+            case _: [path];
+        };
+
+        var pathTypes = [for(p in paths) {
+            try Context.typeof(p)
+            catch(e : Dynamic) {
+                Context.error("Cannot find field or its type in state.", p.pos);
+            }
+        }];
 
         return switch listener.expr {
-            case EFunction(_, f) if(f.args.length == 1):
-                f.args[0].type = Context.toComplexType(pathType);
+            case EFunction(_, f) if(f.args.length == paths.length):
+                for(i in 0...paths.length)
+                    f.args[i].type = Context.toComplexType(pathTypes[i]);
+
+                var stringPaths = paths.map(p -> {
+                    expr: EConst(CString(stripPathPrefix(p))),
+                    pos: p.pos
+                });
+
                 macro $store.subscribe({
-                    path: $v{stripPathPrefix(path)},
+                    paths: $a{stringPaths},
                     listener: $listener
                 });
             case x:
-                Context.error('Function must take a single argument of type $pathType.', listener.pos);
+                Context.error('Function must take the same number of arguments as specified fields.', listener.pos);
         }
     }
 

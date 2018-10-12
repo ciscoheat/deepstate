@@ -95,11 +95,15 @@ class DeepStateTests extends buddy.SingleSuite {
             score: 1, 
             person: {
                 name: {
-                    firstName: "Allan", lastName: "Benberg"
+                    firstName: "Montagu", lastName: "Norman"
                 }
             },
             timestamps: [Date.now()]
         };
+
+        beforeEach({
+            asset = new CIA(initialState);
+        });
 
         describe("The Deep State", {
             function testIdentity(newState : TestState) {
@@ -107,10 +111,6 @@ class DeepStateTests extends buddy.SingleSuite {
                 newState.should.not.be(null);
                 newState.should.not.be(initialState);
             }
-
-            beforeEach({
-                asset = new CIA(initialState);
-            });
 
             it("should update the whole state if specified", {
                 CompilationShould.failFor(
@@ -127,8 +127,8 @@ class DeepStateTests extends buddy.SingleSuite {
                 newState.timestamps[0].getTime().should.beGreaterThan(0);
 
                 newState.score.should.be(1);
-                newState.person.name.firstName.should.be("Allan");
-                newState.person.name.lastName.should.be("Benberg");
+                newState.person.name.firstName.should.be("Montagu");
+                newState.person.name.lastName.should.be("Norman");
             });
 
             it("should not modify the first state object when multiple changes are made", {
@@ -139,32 +139,32 @@ class DeepStateTests extends buddy.SingleSuite {
                     },
                     { 
                         path: "person.name", 
-                        value: { firstName: "Allen", lastName: "Dulles" }
+                        value: { firstName: "Avery", lastName: "Dulles" }
                     }
                 ]});
 
                 testIdentity(newState);
                 newState.score.should.be(1);
                 newState.person.should.not.be(initialState.person);
-                newState.person.name.firstName.should.be("Allen");
+                newState.person.name.firstName.should.be("Avery");
                 newState.person.name.lastName.should.be("Dulles");
 
                 nextState.should.not.be(newState);
-                nextState.person.name.firstName.should.be("Allan");
-                nextState.person.name.lastName.should.be("Benberg");
+                nextState.person.name.firstName.should.be("Montagu");
+                nextState.person.name.lastName.should.be("Norman");
             });
 
             it("should update fields in the middle of the state tree", {
                 var newState = asset.update({type: 'test', updates: [{ 
                     path: "person.name", 
-                    value: { firstName: "Allan", lastName: "Benberg" }
+                    value: { firstName: "Montagu", lastName: "Norman" }
                 }]});
 
                 testIdentity(newState);
                 newState.score.should.be(0);
                 newState.person.should.not.be(initialState.person);
-                newState.person.name.firstName.should.be("Allan");
-                newState.person.name.lastName.should.be("Benberg");
+                newState.person.name.firstName.should.be("Montagu");
+                newState.person.name.lastName.should.be("Norman");
             });
 
             it("should update fields at the end of the state tree", {
@@ -208,7 +208,7 @@ class DeepStateTests extends buddy.SingleSuite {
                 var timestamps = asset.state.timestamps;
                 var newState = asset.update({type: 'test_multiple', updates: [
                     { path: "score", value: 100 },
-                    { path: "person.name.lastName", value: "Benberg" },
+                    { path: "person.name.lastName", value: "Norman" },
                     { path: "timestamps", value: timestamps.push(Date.now()) }
                 ]});
 
@@ -216,7 +216,7 @@ class DeepStateTests extends buddy.SingleSuite {
                 newState.score.should.be(100);
 
                 newState.person.name.firstName.should.be("Wall");
-                newState.person.name.lastName.should.be("Benberg");
+                newState.person.name.lastName.should.be("Norman");
 
                 newState.timestamps.length.should.be(1);
                 newState.timestamps.should.not.be(timestamps);
@@ -267,14 +267,14 @@ class DeepStateTests extends buddy.SingleSuite {
 
                 it("should be able to update a field if passed a single value", {
                     var storeVar : CIA = asset;
-                    var newState = storeVar.changeFirstName("Allan");
-                    //var newState = storeVar.updateIn(storeVar.state.person.name.firstName, "Allan");
+                    var newState = storeVar.changeFirstName("Montagu");
+                    //var newState = storeVar.updateIn(storeVar.state.person.name.firstName, "Montagu");
 
-                    CompilationShould.failFor(storeVar.updateIn(storeVar.state.notAField, "Allan"));
+                    CompilationShould.failFor(storeVar.updateIn(storeVar.state.notAField, "Montagu"));
 
                     testIdentity(newState);
                     newState.score.should.be(0);
-                    newState.person.name.firstName.should.be("Allan");
+                    newState.person.name.firstName.should.be("Montagu");
                     newState.person.name.lastName.should.be("Enberg");
                 });
 
@@ -286,8 +286,8 @@ class DeepStateTests extends buddy.SingleSuite {
                     newState.timestamps[0].getTime().should.beGreaterThan(0);
 
                     newState.score.should.be(1);
-                    newState.person.name.firstName.should.be("Allan");
-                    newState.person.name.lastName.should.be("Benberg");
+                    newState.person.name.firstName.should.be("Montagu");
+                    newState.person.name.lastName.should.be("Norman");
                 });
 
                 it("should update several values in one action if given a map", {
@@ -360,18 +360,18 @@ class DeepStateTests extends buddy.SingleSuite {
                     lastNameCalls++;
                 });
 
-                asset.changeFirstName("Allen");
-                newName.should.be("Allen Enberg");
+                asset.changeFirstName("Avery");
+                newName.should.be("Avery Enberg");
                 nameCalls.should.be(1);
                 lastNameCalls.should.be(0);
 
-                asset.changeFirstName("Allen");
+                asset.changeFirstName("Avery");
                 nameCalls.should.be(2);
                 lastNameCalls.should.be(0);
 
                 asset.updateIn(asset.state.person.name.lastName, "Dulles");
                 asset.state.person.name.lastName.should.be("Dulles");
-                newName.should.be("Allen Dulles");
+                newName.should.be("Avery Dulles");
                 nameCalls.should.be(3);
                 lastNameCalls.should.be(1);
 
@@ -380,14 +380,44 @@ class DeepStateTests extends buddy.SingleSuite {
                 asset.changeFirstName("John Foster");
                 asset.state.person.name.firstName.should.be("John Foster");
                 asset.state.person.name.lastName.should.be("Dulles");
-                newName.should.be("Allen Dulles");
+                newName.should.be("Avery Dulles");
                 nameCalls.should.be(3);
                 lastNameCalls.should.be(1);
             });
 
-            it("should not subscribe to a non-existing state field", {
+            it("should subscribe with multiple checks if passed an array", {
+                var newName : String = null;
+                var multiCalls = 0;
+
+                asset.subscribeTo(
+                    [asset.state.person.name, asset.state.score], 
+                    (name, score) -> {
+                        newName = name.firstName + " " + name.lastName + ' (${asset.state.score})';
+                        multiCalls++;
+                    }
+                );
+
+                asset.changeFirstName("Avery");
+                newName.should.be("Avery Enberg (0)");
+                multiCalls.should.be(1);
+
+                asset.updateIn(asset.state, nextState);
+
+                multiCalls.should.be(2);
+                asset.state.score.should.be(1);
+                newName.should.be("Montagu Norman (1)");
+            });
+
+            it("should not compile if listener has incorrect number of arguments", {
+                CompilationShould.failFor(asset.subscribeTo(
+                    [asset.state.person.name, asset.state.score], 
+                    (name) -> null
+                ));
+            });
+
+            it("should throw an exception when subscribing to a non-existing state field", {
                 function subscribeToNonexistingPath() {
-                    asset.subscribe({path: "notExisting", listener: name -> null});
+                    asset.subscribe({paths: ["notExisting"], listener: name -> null});
                     asset.changeFirstName("Anything");
                 }
 
