@@ -15,6 +15,7 @@ typedef TestState = {
         }
     }
     final timestamps : ImmutableArray<Date>;
+        final json : ImmutableJson;
 }
 
 class Person implements DataClass {
@@ -87,18 +88,23 @@ class DeepStateTests extends buddy.SingleSuite {
         var initialState : TestState = {
             score: 0,
             person: {
-                name: { firstName: "Wall", lastName: "Enberg"}
+                name: { firstName: "Wall", lastName: "Enberg" }
             },
-            timestamps: []
+            timestamps: [],
+            json: { 
+                event: "Kreuger liquidation", 
+                place: "Paris", 
+                years: {from: 1932, to: 1941},
+                involved: ["Hugo Stenbeck", "Jacob Wallenberg", "Price Waterhouse"]
+            }
         };
         var nextState : TestState = {
             score: 1, 
             person: {
-                name: {
-                    firstName: "Montagu", lastName: "Norman"
-                }
+                name: { firstName: "Montagu", lastName: "Norman" }
             },
-            timestamps: [Date.now()]
+            timestamps: [Date.now()],
+            json: { name: "Meitner", place: "Ljungaverk", year: 1945 }
         };
 
         beforeEach({
@@ -444,13 +450,13 @@ class DeepStateTests extends buddy.SingleSuite {
 
             describe("ImmutableArray", {
                 it("should work with array access", {
-                    var immutableArray = new ImmutableArray<String>(["A"]);
+                    var immutableArray : ImmutableArray<String> = ["A"];
                     immutableArray.length.should.be(1);
                     immutableArray[0].should.be("A");
                 });
 
                 it("should return a new array for the modification methods", {
-                    var immutableArray = new ImmutableArray<String>(["A"]);
+                    var immutableArray : ImmutableArray<String> = ["A"];
                     var array2 = immutableArray.push("B");
 
                     array2.should.not.be(immutableArray);
@@ -460,19 +466,19 @@ class DeepStateTests extends buddy.SingleSuite {
                 });
 
                 it("should return the same array if nothing could be removed from it", {
-                    var immutableArray = new ImmutableArray<String>(["A"]);
+                    var immutableArray : ImmutableArray<String> = ["A"];
                     immutableArray.remove("B").should.be(immutableArray);
                     immutableArray.remove("A").should.not.be(immutableArray);
                 });
 
                 it("should be able to access first and last elements with methods", {
                     var array = ["A", "B"];
-                    var immutableArray = new ImmutableArray<String>(array);
+                    var immutableArray : ImmutableArray<String> = array;
 
                     immutableArray.first().should.equal(Option.Some("A"));
                     immutableArray.last().should.equal(Option.Some("B"));
 
-                    var empty = new ImmutableArray<String>([]);
+                    var empty : ImmutableArray<String> = [];
                     empty.first().should.equal(None);
                     empty.last().should.equal(None);
                 });
@@ -489,6 +495,26 @@ class DeepStateTests extends buddy.SingleSuite {
                     var list : ImmutableList<String> = ["A", "B"];
                     list.remove("C").should.be(list);
                     list.remove("A").should.not.be(list);
+                });
+            });
+
+            describe("ImmutableJson", {
+                it("should read values with get and array index", {
+                    var startYear : Int = asset.state.json['years'].get('from');
+                    startYear.should.be(1932);
+                });
+
+                it("should return the same json if nothing was removed", {
+                    var list = asset.state.json;
+                    list.remove("doesntExist").should.be(list);
+                    list.remove("event").should.not.be(list);
+                });
+
+                it("should update as usual", {
+                    var list = asset.state.json;
+                    asset.updateIn(asset.state, nextState);
+                    asset.state.json.should.not.be(list);
+                    (asset.state.json.get('place') : String).should.be("Ljungaverk");
                 });
             });
         });

@@ -55,6 +55,9 @@ class DeepStateInfrastructure {
                         abstractType.name == "Int" || 
                         abstractType.name == "Int64"
                     )) return
+                    else if(abstractType.pack[0] == "ds" && 
+                        abstractType.name == "ImmutableJson"
+                    ) return
                     else if(abstractType.pack[0] == "ds" && (
                         abstractType.name == "ImmutableArray" || 
                         abstractType.name == "ImmutableList" ||
