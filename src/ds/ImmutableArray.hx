@@ -1,12 +1,18 @@
 package ds;
 
 @:forward(length, concat, copy, filter, indexOf, iterator, join, lastIndexOf, map, slice, splice, toString)
-abstract ImmutableArray<T>(Array<T>) from Array<T> {
-	@:arrayAccess inline function arrayAccess(key : Int) : T return this[key];
+abstract ImmutableArray<T>(Array<T>) {
+	@:arrayAccess inline function arrayAccess(key : Int) : T 
+        return this[key];
 
-    public inline function new(array : Array<T>) this = array;
+    inline function new(array : Array<T>)
+        this = array;
 
-    @:to public function toIterable() : Iterable<T> return this;
+    @:from public static function fromArray<T2>(array : Array<T2>) 
+        return new ImmutableArray(array.copy());
+
+    @:to public function toIterable() : Iterable<T>
+        return this;
 
     public function insert(pos : Int, x : T) : ImmutableArray<T> {
         var newArray = this.copy();
@@ -28,7 +34,7 @@ abstract ImmutableArray<T>(Array<T>) from Array<T> {
 
     public function remove(x : T) : ImmutableArray<T> {
         var newArray = this.copy();
-        return newArray.remove(x) ? newArray : this;
+        return newArray.remove(x) ? newArray : new ImmutableArray(this);
     }
 
     public function reverse() : ImmutableArray<T> {
