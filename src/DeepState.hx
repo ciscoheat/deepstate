@@ -15,7 +15,7 @@ class DeepState<T> {
     public var state(default, null) : T;
 
     final middlewares : ImmutableArray<Middleware<T>>;
-    final listeners : Array<Subscription>;
+    final listeners : Array<Subscription<T>>;
 
     function new(initialState : T, middlewares : ImmutableArray<Middleware<T>> = null) {
         this.state = initialState;
@@ -23,9 +23,13 @@ class DeepState<T> {
         this.listeners = [];
     }
 
-    public function subscribe(subscription: Subscription) : Void -> Void {
+    public function subscribe(subscription: Subscription<T>) : Void -> Void {
         listeners.push(subscription);
         return function() listeners.remove(subscription);
+    }
+
+    public function subscribeState(listener : T -> T -> Void) {
+        return subscribe(Full(listener));
     }
 
     public function update(action : Action) : T {
@@ -74,16 +78,22 @@ class DeepState<T> {
                 return output;
             }
 
-            for(l in this.listeners.copy()) {
-                var shouldCall = false;
-                var parameters : Array<Dynamic> = [];
-                for(path in l.paths) {
-                    var prevValue = getFieldInState(previousState, path);
-                    var currentValue = getFieldInState(this.state, path);
-                    shouldCall = shouldCall || prevValue != currentValue;
-                    parameters.push(currentValue);
-                }
-                if(shouldCall) Reflect.callMethod(null, l.listener, parameters);
+            for(l in this.listeners.copy()) switch l {
+                case Full(listener):
+                    listener(previousState, this.state);
+                case Partial(paths, listener):
+                    var shouldCall = false;
+                    var parameters : Array<Dynamic> = [];
+
+                    for(path in paths) {
+                        var prevValue = getFieldInState(previousState, path);
+                        var currentValue = getFieldInState(this.state, path);
+                        shouldCall = shouldCall || prevValue != currentValue;
+                        parameters.push(currentValue);
+                    }
+
+                    if(shouldCall)
+                        Reflect.callMethod(null, listener, parameters);
             }
         }
 
@@ -234,14 +244,15 @@ class DeepState<T> {
                     f.args[i].type = Context.toComplexType(pathTypes[i]);
 
                 var stringPaths = paths.map(p -> {
-                    expr: EConst(CString(stripPathPrefix(p))),
-                    pos: p.pos
+                    var path = stripPathPrefix(p);
+                    if(path == "") Context.error("Use subscribeState to subscribe to the whole state.", p.pos);
+                    {
+                        expr: EConst(CString(path)),
+                        pos: p.pos
+                    }
                 });
 
-                macro $store.subscribe({
-                    paths: $a{stringPaths},
-                    listener: $listener
-                });
+                macro $store.subscribe(ds.Subscription.Partial($a{stringPaths}, $listener));
             case x:
                 Context.error('Function must take the same number of arguments as specified fields.', listener.pos);
         }
@@ -272,6 +283,8 @@ class DeepState<T> {
         return createAction(store, actionType, _updateIn(path, newValue));
     }
 }
+
+/////////////////////////////////////////////////////////////////////
 
 private abstract DeepStateNode(ImmutableArray<String>) {
     public inline function new(a : ImmutableArray<String>) {

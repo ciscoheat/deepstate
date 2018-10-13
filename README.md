@@ -66,7 +66,7 @@ class Main {
         trace(asset.state.score);
 
         // Or a partial object
-        asset.updateIn(asset.state.player, {firstName: "Allen"});
+        asset.updateIn(asset.state.player, {firstName: "Avery"});
         trace(asset.state.player);
 
         // The updateMap method should be passed a map declaration, 
@@ -129,7 +129,13 @@ asset.subscribeTo(
 unsubscribe();
 ```
 
-Note that the listener function will only be called upon changes *on the selected parts of the state tree*. So in the first example, it won't be called if the score changed. If you want to listen to every change, subscribe to `asset.state`, which will always change upon any update.
+Note that the listener function will only be called upon changes *on the selected parts of the state tree*. So in the first example, it won't be called if the score changed. If you want to listen to every change, use `subscribeState` instead, which will be called on every update:
+
+```haxe
+var unsubscribe = asset.subscribeState((prev, current) -> {
+    if(prev.score < current.score) trace("Score increased!");
+});
+```
 
 ## Roadmap
 

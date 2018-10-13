@@ -353,82 +353,100 @@ class DeepStateTests extends buddy.SingleSuite {
         /////////////////////////////////////////////////////////////
 
         describe("Observers", {
-            it("should subscribe with the subscribe method", {
-                var newName : String = null;
-                var nameCalls = 0, lastNameCalls = 0;
+            describe("The subscribeTo method", {
+                it("should subscribe to a part of the state tree", {
+                    var newName : String = null;
+                    var nameCalls = 0, lastNameCalls = 0;
 
-                var unsub = asset.subscribeTo(asset.state.person.name, name -> {
-                    newName = name.firstName + " " + name.lastName;
-                    nameCalls++;
+                    var unsub = asset.subscribeTo(asset.state.person.name, name -> {
+                        newName = name.firstName + " " + name.lastName;
+                        nameCalls++;
+                    });
+
+                    asset.subscribeTo(asset.state.person.name.lastName, lastName -> {
+                        lastNameCalls++;
+                    });
+
+                    asset.changeFirstName("Avery");
+                    newName.should.be("Avery Enberg");
+                    nameCalls.should.be(1);
+                    lastNameCalls.should.be(0);
+
+                    asset.changeFirstName("Avery");
+                    nameCalls.should.be(2);
+                    lastNameCalls.should.be(0);
+
+                    asset.updateIn(asset.state.person.name.lastName, "Dulles");
+                    asset.state.person.name.lastName.should.be("Dulles");
+                    newName.should.be("Avery Dulles");
+                    nameCalls.should.be(3);
+                    lastNameCalls.should.be(1);
+
+                    unsub(); // Unsubscribing from name changes
+
+                    asset.changeFirstName("John Foster");
+                    asset.state.person.name.firstName.should.be("John Foster");
+                    asset.state.person.name.lastName.should.be("Dulles");
+                    newName.should.be("Avery Dulles");
+                    nameCalls.should.be(3);
+                    lastNameCalls.should.be(1);
                 });
 
-                asset.subscribeTo(asset.state.person.name.lastName, lastName -> {
-                    lastNameCalls++;
+                it("should subscribe with multiple checks if passed multiple methods", {
+                    var newName : String = null;
+                    var multiCalls = 0;
+
+                    asset.subscribeTo(
+                        asset.state.person.name, asset.state.score,
+                        (name, score) -> {
+                            newName = name.firstName + " " + name.lastName + ' (${asset.state.score})';
+                            multiCalls++;
+                        }
+                    );
+
+                    asset.changeFirstName("Avery");
+                    newName.should.be("Avery Enberg (0)");
+                    multiCalls.should.be(1);
+
+                    asset.updateIn(asset.state, nextState);
+
+                    multiCalls.should.be(2);
+                    asset.state.score.should.be(1);
+                    newName.should.be("Montagu Norman (1)");
                 });
 
-                asset.changeFirstName("Avery");
-                newName.should.be("Avery Enberg");
-                nameCalls.should.be(1);
-                lastNameCalls.should.be(0);
+                it("should not compile if listener has incorrect number of arguments", {
+                    CompilationShould.failFor(asset.subscribeTo(
+                        asset.state.person.name, asset.state.score, 
+                        (name) -> null
+                    ));
+                });
 
-                asset.changeFirstName("Avery");
-                nameCalls.should.be(2);
-                lastNameCalls.should.be(0);
+                it("should not compile if subscribing to the whole state tree", {
+                    CompilationShould.failFor(asset.subscribeTo(
+                        asset.state, (state) -> null
+                    ));
+                });
 
-                asset.updateIn(asset.state.person.name.lastName, "Dulles");
-                asset.state.person.name.lastName.should.be("Dulles");
-                newName.should.be("Avery Dulles");
-                nameCalls.should.be(3);
-                lastNameCalls.should.be(1);
+                it("should subscribe to the whole state if using the subscribeState method", {
+                    asset.subscribeState((prev, current) -> {
+                        prev.should.not.be(current);
+                        prev.score.should.be(0);
+                        current.score.should.be(1);
+                    });
 
-                unsub(); // Unsubscribing from name changes
+                    asset.addScore(1);
+                });
 
-                asset.changeFirstName("John Foster");
-                asset.state.person.name.firstName.should.be("John Foster");
-                asset.state.person.name.lastName.should.be("Dulles");
-                newName.should.be("Avery Dulles");
-                nameCalls.should.be(3);
-                lastNameCalls.should.be(1);
-            });
-
-            it("should subscribe with multiple checks if passed an array", {
-                var newName : String = null;
-                var multiCalls = 0;
-
-                asset.subscribeTo(
-                    asset.state.person.name, asset.state.score,
-                    (name, score) -> {
-                        newName = name.firstName + " " + name.lastName + ' (${asset.state.score})';
-                        multiCalls++;
+                it("should throw an exception when subscribing to a non-existing state field", {
+                    function subscribeToNonexistingPath() {
+                        asset.subscribe(Partial(["notExisting"], name -> null));
+                        asset.changeFirstName("Anything");
                     }
-                );
 
-                asset.changeFirstName("Avery");
-                newName.should.be("Avery Enberg (0)");
-                multiCalls.should.be(1);
-
-                asset.updateIn(asset.state, nextState);
-
-                multiCalls.should.be(2);
-                asset.state.score.should.be(1);
-                newName.should.be("Montagu Norman (1)");
-            });
-
-            it("should not compile if listener has incorrect number of arguments", {
-                CompilationShould.failFor(asset.subscribeTo(
-                    [asset.state.person.name, asset.state.score], 
-                    (name) -> null
-                ));
-            });
-
-            it("should throw an exception when subscribing to a non-existing state field", {
-                function subscribeToNonexistingPath() {
-                    asset.subscribe({paths: ["notExisting"], listener: name -> null});
-                    asset.changeFirstName("Anything");
-                }
-
-                subscribeToNonexistingPath.should.throwType(String);
-                CompilationShould.failFor(asset.subscribeTo(asset.state.notExisting, name -> null));
+                    subscribeToNonexistingPath.should.throwType(String);
+                    CompilationShould.failFor(asset.subscribeTo(asset.state.notExisting, name -> null));
+                });
             });
         });
 
