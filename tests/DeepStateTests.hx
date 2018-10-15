@@ -428,8 +428,8 @@ class DeepStateTests extends buddy.SingleSuite {
                     ));
                 });
 
-                it("should subscribe to the whole state if using the subscribeState method", {
-                    asset.subscribeState((prev, current) -> {
+                it("should subscribe to the whole state if using the subscribeToState method", {
+                    asset.subscribeToState((prev, current) -> {
                         prev.should.not.be(current);
                         prev.score.should.be(0);
                         current.score.should.be(1);

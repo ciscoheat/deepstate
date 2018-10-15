@@ -31,7 +31,7 @@ class CIA extends DeepState<GameState> {
     public function new(initialState, middlewares = null) 
         super(initialState, middlewares);
 
-    // Group actions in this class
+    // Group actions in this class:
 
     public function resetScore() {
         // The updateIn method can be passed a normal value for direct updates
@@ -40,12 +40,12 @@ class CIA extends DeepState<GameState> {
 
     public function addScore(add : Int) {
         // Or a lambda function
-        return updateIn(state.score, score -> score + 1);
+        return updateIn(state.score, score -> score + add);
     }
 
-    public function setFirstName() {
+    public function setFirstName(name = "Avery") {
         // Or a partial object
-        return updateIn(state.player, {firstName: "Avery"});
+        return updateIn(state.player, {firstName: name});
     }
 
     public function multipleUpdates() {
@@ -53,7 +53,8 @@ class CIA extends DeepState<GameState> {
         // for multiple updates in the same action
         return updateMap([
             state.score => s -> s + 10,
-            state.player.firstName => "John Foster"
+            state.player.firstName => "John Foster",
+            state.timestamps => state.timestamps.push(Date.now())
         ]);
     }
 }
@@ -70,8 +71,10 @@ class Main {
             timestamps: [Date.now()],
             json: { name: "Meitner", place: "Ljungaverk", year: 1945 }
         });
-
+        
         // Access state as you expect:
+        trace(asset.state);
+
         var score = asset.state.score;
         trace(score);
 
@@ -134,17 +137,17 @@ asset.subscribeTo(
 unsubscribe();
 ```
 
-Note that the listener function will only be called upon changes *on the selected parts of the state tree*. So in the first example, it won't be called if the score changed. If you want to listen to every change, use `subscribeState` instead, which will be called on every update:
+Note that the listener function will only be called upon changes *on the selected parts of the state tree*. So in the first example, it won't be called if the score changed. If you want to listen to every change, use `subscribeToState` instead, which will be called on every update:
 
 ```haxe
-var unsubscribe = asset.subscribeState((prev, current) -> {
+var unsubscribe = asset.subscribeToState((prev, current) -> {
     if(prev.score < current.score) trace("Score increased!");
 });
 ```
 
 ## Compiler defines
 
-`-D deepstate-public-update` - As default, the `update` methods can only be called from within the asset that inherits from `DeepState<T>`. By defining this, they will become public.
+`-D deepstate-public-update` - As default, the `update` methods can only be called from within the asset that inherits from `DeepState<T>`, to keep state changes in the same place. With this define, they will become public.
 
 ## Roadmap
 

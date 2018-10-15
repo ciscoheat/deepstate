@@ -84,6 +84,8 @@ class DeepStateInfrastructure {
             }
         }
 
+        /////////////////////////////////////////////////////////////
+
         var cls = Context.getLocalClass().get();
 
         // Until @:genericBuild works properly, this is required

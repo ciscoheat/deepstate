@@ -27,7 +27,7 @@ class DeepState<T> {
         return function() listeners.remove(subscription);
     }
 
-    public function subscribeState(listener : T -> T -> Void) {
+    public function subscribeToState(listener : T -> T -> Void) {
         return subscribe(Full(listener));
     }
 
@@ -246,7 +246,7 @@ class DeepState<T> {
 
                 var stringPaths = paths.map(p -> {
                     var path = stripPathPrefix(p);
-                    if(path == "") Context.error("Use subscribeState to subscribe to the whole state.", p.pos);
+                    if(path == "") Context.error("Use subscribeToState to subscribe to the whole state.", p.pos);
                     {
                         expr: EConst(CString(path)),
                         pos: p.pos
