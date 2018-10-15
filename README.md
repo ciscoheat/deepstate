@@ -67,7 +67,8 @@ class Main {
                 firstName: "Wall",
                 lastName: "Enberg"
             },
-            timestamps: [Date.now()]
+            timestamps: [Date.now()],
+            json: { name: "Meitner", place: "Ljungaverk", year: 1945 }
         });
 
         // Access state as you expect:
