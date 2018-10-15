@@ -31,9 +31,30 @@ class CIA extends DeepState<GameState> {
     public function new(initialState, middlewares = null) 
         super(initialState, middlewares);
 
-    // Group actions/reducers in this class
+    // Group actions in this class
+
+    public function resetScore() {
+        // The updateIn method can be passed a normal value for direct updates
+        return this.updateIn(state.score, 0);
+    }
+
     public function addScore(add : Int) {
-        return this.updateIn(state.score, state.score + add);
+        // Or a lambda function
+        return updateIn(state.score, score -> score + 1);
+    }
+
+    public function setFirstName() {
+        // Or a partial object
+        return updateIn(state.player, {firstName: "Avery"});
+    }
+
+    public function multipleUpdates() {
+        // The updateMap method should be passed a map declaration, 
+        // for multiple updates in the same action
+        return updateMap([
+            state.score => s -> s + 10,
+            state.player.firstName => "John Foster"
+        ]);
     }
 }
 
@@ -53,29 +74,12 @@ class Main {
         var score = asset.state.score;
         trace(score);
 
-        // Update the state by the asset methods, or directly
+        // Update the state by the methods in the asset
         var newState = asset.addScore(1);
+
         trace(newState.score);
-
-        // The updateIn method can be passed a normal value for direct updates
-        asset.updateIn(asset.state.score, 0);
+        // Same as:
         trace(asset.state.score);
-
-        // Or a lambda function
-        asset.updateIn(asset.state.score, score -> score + 1);
-        trace(asset.state.score);
-
-        // Or a partial object
-        asset.updateIn(asset.state.player, {firstName: "Avery"});
-        trace(asset.state.player);
-
-        // The updateMap method should be passed a map declaration, 
-        // for multiple updates in the same action
-        asset.updateMap([
-            asset.state.score => s -> s + 10,
-            asset.state.player.firstName => "John Foster"
-        ]);
-        trace(asset.state);
     }
 }
 ```
@@ -136,6 +140,10 @@ var unsubscribe = asset.subscribeState((prev, current) -> {
     if(prev.score < current.score) trace("Score increased!");
 });
 ```
+
+## Compiler defines
+
+`-D deepstate-public-update` - As default, the `update` methods can only be called from within the asset that inherits from `DeepState<T>`. By defining this, they will become public.
 
 ## Roadmap
 

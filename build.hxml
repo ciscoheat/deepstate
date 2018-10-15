@@ -5,6 +5,7 @@
 -cp src
 -cp tests
 -D analyzer-optimize
+-D deepstate-public-update
 
 -main DeepStateTests
 -neko bin/deepstate_tests.n

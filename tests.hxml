@@ -1,6 +1,8 @@
 -lib buddy
 -lib dataclass
 
+-D deepstate-public-update
+
 -cp tests
 -main DeepStateTests
 -dce full

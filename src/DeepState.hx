@@ -1,7 +1,6 @@
 import haxe.DynamicAccess;
 import haxe.macro.Context;
 import haxe.macro.Expr;
-import haxe.Constraints;
 
 import ds.*;
 
@@ -32,7 +31,8 @@ class DeepState<T> {
         return subscribe(Full(listener));
     }
 
-    public function update(action : Action) : T {
+    #if deepstate_public_update public #end
+    function update(action : Action) : T {
         // TODO: Handle Dataclass (create a copy method based on type)
 
         // Last function in middleware chain - create a new state.
@@ -228,7 +228,8 @@ class DeepState<T> {
     }    
     #end
 
-    macro public function subscribeTo(store : ExprOf<DeepState<Dynamic>>, paths : Array<Expr>) {
+    #if deepstate_public_update public #end
+    macro function subscribeTo(store : ExprOf<DeepState<Dynamic>>, paths : Array<Expr>) {
         var listener = paths.pop();
 
         var pathTypes = [for(p in paths) {
@@ -258,7 +259,8 @@ class DeepState<T> {
         }
     }
 
-    macro public function updateMap(store : ExprOf<DeepState<Dynamic>>, map : Expr, actionType : String = null) {
+    #if deepstate_public_update public #end
+    macro function updateMap(store : ExprOf<DeepState<Dynamic>>, map : Expr, actionType : String = null) {
         function error(e) {
             Context.error("Value must be an array map declaration: [K => V, ...]", e.pos);
         }
@@ -279,7 +281,8 @@ class DeepState<T> {
         return createAction(store, actionType, updates);
     }
 
-    macro public function updateIn(store : ExprOf<DeepState<Dynamic>>, path : Expr, newValue : Expr, actionType : String = null) {
+    #if deepstate_public_update public #end
+    macro function updateIn(store : ExprOf<DeepState<Dynamic>>, path : Expr, newValue : Expr, actionType : String = null) {
         return createAction(store, actionType, _updateIn(path, newValue));
     }
 }
