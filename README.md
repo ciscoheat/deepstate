@@ -76,14 +76,14 @@ class Main {
         trace(asset.state);
 
         var score = asset.state.score;
-        trace(score);
+        trace(score); // 0
 
         // Update the state by the methods in the asset
         var newState = asset.addScore(1);
 
-        trace(newState.score);
+        trace(newState.score); // 1
         // Same as:
-        trace(asset.state.score);
+        trace(asset.state.score); // 1
     }
 }
 ```

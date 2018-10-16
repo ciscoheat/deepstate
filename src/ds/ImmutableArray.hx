@@ -14,6 +14,9 @@ abstract ImmutableArray<T>(Array<T>) {
     @:to public function toIterable() : Iterable<T>
         return this;
 
+    public function toArray() : Array<T>
+        return this;
+
     public function insert(pos : Int, x : T) : ImmutableArray<T> {
         var newArray = this.copy();
         newArray.insert(pos, x);

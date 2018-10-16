@@ -1,10 +1,13 @@
 import haxe.DynamicAccess;
 import haxe.macro.Context;
 import haxe.macro.Expr;
-
 import ds.*;
 
+#if macro
 using haxe.macro.Tools;
+using haxe.macro.TypeTools;
+#end
+
 using Reflect;
 using Lambda;
 
@@ -65,7 +68,7 @@ class DeepState<T> {
             dispatch(action);
         }
 
-        // Call listeners
+        // Notify subscribers
         {
             function getFieldInState(state : T, path : String) {
                 if(path == "") return state;
@@ -125,25 +128,15 @@ class DeepState<T> {
         true;
     } catch(e : Dynamic) false;
 
-    static function stripPathPrefix(path : Expr) {
-        // Strip "store.state" from path
+    static function stripPathPrefix(path : Expr) : String {
+        // Strip "asset.state" from path
         var pathStr = path.toString();
-        for(v in Context.getLocalTVars()) {
-            var pathTest = '${v.name}.';
-            if(pathStr.indexOf(pathTest) == 0) {
-                pathStr = pathStr.substr(pathTest.length);
-                break;
-            }
+        return if(pathStr == "state" || pathStr.lastIndexOf(".state") == pathStr.length-6) 
+            ""
+        else {
+            var index = pathStr.indexOf("state.");
+            index == -1 ? pathStr : pathStr.substr(index + 6);
         }
-
-        // Strip "state."
-        return if(pathStr.indexOf("state.") == 0)
-            pathStr.substr(6);
-        else if(pathStr == "state") {
-            // If only "state" is left, return empty string to make a full update.
-            "";
-        } else
-            pathStr;
     }
 
     static function _updateField(path : Expr, pathType : haxe.macro.Type, newValue : Expr) {

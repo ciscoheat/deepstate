@@ -3,6 +3,10 @@
 
 -D deepstate-public-update
 
+#--times
+#-D macro-times
+-D analyzer-optimize
+-dce full
+
 -cp tests
 -main DeepStateTests
--dce full

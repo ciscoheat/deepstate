@@ -4,8 +4,12 @@
 -debug
 -cp src
 -cp tests
--D analyzer-optimize
 -D deepstate-public-update
+
+#--times
+#-D macro-times
+-D analyzer-optimize
+-dce full
 
 -main DeepStateTests
 -neko bin/deepstate_tests.n
