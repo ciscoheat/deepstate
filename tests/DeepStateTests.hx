@@ -500,6 +500,18 @@ class DeepStateTests extends buddy.SingleSuite {
                     empty.first().should.equal(None);
                     empty.last().should.equal(None);
                 });
+
+                it("should be iterable", {
+                    var immutableArray : ImmutableArray<String> = ["A", "B"];
+                    var output = "";
+                    for(a in immutableArray) output += a;
+                    output.should.be("AB");
+                });
+
+                it("should work with a Lambda-like interface", {
+                    var immutableArray : ImmutableArray<String> = ["A", "B"];
+                    immutableArray.exists(a -> a == "A").should.be(true);
+                });
             });
 
             describe("ImmutableList", {

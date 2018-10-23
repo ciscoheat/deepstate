@@ -214,6 +214,10 @@ class DeepState<T> {
             ? Context.getLocalClass().get().name + "." + Context.getLocalMethod() 
             : actionType;
 
+		// Display mode and vshaxe diagnostics have some problems with this.
+		//if(Context.defined("display") || Context.defined("display-details")) 
+			//return macro null;
+
         return macro $store.update({
             type: $v{type},
             updates: $a{updates}
