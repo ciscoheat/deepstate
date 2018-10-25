@@ -10,7 +10,7 @@
 	"contributors": [
 		"ciscoheat"
 	],
-	"releasenote": "Many updates, quite useful now.",
-	"version": "0.2.0",
+	"releasenote": "subscribeTo is now public.",
+	"version": "0.2.1",
 	"url": "http://github.com/ciscoheat/deepstate/"
 }
