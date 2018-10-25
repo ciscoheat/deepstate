@@ -225,8 +225,7 @@ class DeepState<T> {
     }    
     #end
 
-    #if deepstate_public_update public #end
-    macro function subscribeTo(store : ExprOf<DeepState<Dynamic>>, paths : Array<Expr>) {
+    public macro function subscribeTo(store : ExprOf<DeepState<Dynamic>>, paths : Array<Expr>) {
         var listener = paths.pop();
 
         var pathTypes = [for(p in paths) {
