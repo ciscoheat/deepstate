@@ -6,6 +6,8 @@ import haxe.macro.Context;
 import haxe.macro.Expr;
 import haxe.macro.Type;
 import ds.ImmutableArray;
+import haxe.DynamicAccess;
+import ds.internal.StateNode;
 
 using Lambda;
 using haxe.macro.TypeTools;
@@ -25,6 +27,87 @@ class DeepStateInfrastructure {
         //var stateType : DefType;
         //var pathToType = new Map<String, ComplexType>();
         //var pathAccess = new Map<String, Expr>();
+        //var defaultState = new DynamicAccess<Dynamic>();
+
+        function stateNodeTree(name : String, type : Type) : StateNode {
+            //if(name.last().equals(Some("state")))
+                //Context.error("A field cannot be named 'state' in a state structure.", Context.currentPos());
+
+            //trace('\\-- Testing type $type for final');
+            return switch type {
+                case TAnonymous(a):
+                    // Check if all fields in typedef are final
+                    var fields = [for(f in a.get().fields) {
+                        //trace("   \\- Testing field " + fieldName.join("."));
+                        switch f.kind {
+                            case FVar(read, write) if(write == AccNever || write == AccCtor):
+                                stateNodeTree(f.name, f.type);
+                            case _:
+                                Context.error('${f.name} is not final, type cannot be used in DeepState.', f.pos);
+                        }
+                    }];
+                    Typedef(name, fields);
+
+                case TInst(t, _):
+                    var type = t.get();
+                    trace("--------" + type.module + " - " + type.name);
+                    if(type.name == "String" && type.pack.length == 0)
+                        Var(name, "");
+                    else if(type.name == "Date" && type.pack.length == 0)
+                        Var(name, new Date(1970,0,1,1,0,0));
+                    else {
+                        // Check if all public fields in class are final
+                        var fields = [];
+                        for(field in type.fields.get()) if(field.isPublic) switch field.kind {
+                            case FVar(read, write):
+                                if(write == AccNever || write == AccCtor) 
+                                    fields.push(stateNodeTree(field.name, field.type));
+                                else
+                                    Context.error('${field.name} is not final, type cannot be used in DeepState.', type.pos);
+                            case _:
+                        };
+                        Object(name, {name: type.name, pack: type.pack}, fields);
+                    }
+                
+                case TAbstract(t, params):
+                    // Allow Int, Int64, Bool, Float and the ds.ImmutableX types 
+                    var abstractType = t.get();
+                    if(abstractType.pack.length == 0) switch abstractType.name {
+                        case "Bool": Var(name, false);
+                        case "Float": Var(name, 0.0);
+                        case "Int": Var(name, 0);
+                        case "Int64": Var(name, 0);
+                        case _: 
+                            stateNodeTree(name, Context.followWithAbstracts(abstractType.type));
+                    }
+                    else if(abstractType.pack[0] == "ds" && abstractType.name == "ImmutableJson") {
+                        Var(name, new haxe.DynamicAccess<Dynamic>());
+                    }
+                    else if(abstractType.pack[0] == "ds") switch abstractType.name {
+                        case "ImmutableArray": 
+                            stateNodeTree(name, params[0]);
+                            Array(name);
+                        case "ImmutableList": 
+                            stateNodeTree(name, params[0]);
+                            List(name);
+                        case _:
+                            stateNodeTree(name, params[0]);
+                    }
+                    else {
+                        stateNodeTree(name, Context.followWithAbstracts(abstractType.type));
+                    }
+
+                case TType(t, params):
+                    stateNodeTree(name, t.get().type);
+
+                case x:
+                    Context.error('Unsupported DeepState type for $name: $x', Context.currentPos());
+            }
+
+            //var nameStr = name.join(".");
+            //pathToType.set(nameStr, Context.toComplexType(type));
+            //pathAccess.set(nameStr, macro () -> cast $p{name.unshift('state').toArray()});
+        }
 
         function testTypeFields(name : ImmutableArray<String>, type : Type) : Void {
             if(name.last().equals(Some("state")))
@@ -101,29 +184,38 @@ class DeepStateInfrastructure {
         /////////////////////////////////////////////////////////////
 
         var cls = Context.getLocalClass().get();
+        trace("=== " + cls.name);
 
         // Until @:genericBuild works properly, this is required
         if(cls.superClass == null || cls.superClass.params.length != 1)
             Context.error("Class must extend DeepState<T>, where T is the state type.", cls.pos);
 
         var type = cls.superClass.params[0];
+        var tree = stateNodeTree("", type);
 
-        switch type {
-            case TInst(t, params): 
-                Context.error("Only anonymous structures are supported for DeepState at the moment.", Context.currentPos());
-                /*
-                //trace("=== Building DeepState from instance " + t + " with params " + params);
-                testTypeFields(t.get().name, type);
-                */
+        function printTree(node : StateNode, level = 0) {
+            var i = 0;
+            var tab = ""; while(i++ < level) tab += "  ";
+            switch node {
+                case Typedef(name, fields):
+                    trace(tab + '$name:');
+                    for(f in fields) printTree(f, level+1);
+                
+                case Object(name, typePath, fields):
+                    trace(tab + '$name ($typePath):');
+                    for(f in fields) printTree(f, level+1);
 
-            case TType(t, params):
-                //stateType = t.get();
-                //trace("=== Building DeepState from typedef " + t + " with params " + params);
-                testTypeFields([], t.get().type);
+                case Array(name):
+                    trace(tab + 'Array: $name');
 
-            case x:
-                Context.error("Unsupported type for DeepState: " + x, Context.currentPos());
+                case List(name):
+                    trace(tab + 'List: $name');
+
+                case Var(name, defaultValue):
+                    trace(tab + '$name ($defaultValue)');
+            }
         }
+        //printTree(tree);
 
         return null;
 

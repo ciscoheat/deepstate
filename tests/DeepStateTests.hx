@@ -21,11 +21,15 @@ typedef TestState = {
 class Person implements DataClass {
     public final firstName : String;
     public final lastName : String;
+    public final created : Date;
+
+    public function name() return '$firstName $lastName';
 }
 
 class DataClassState implements DataClass {
-    public final id : Int;
-    public final name : Person;
+    @validate(_ >= 0)
+    public final score : Int;
+    public final person : Person;
 }
 
 ///////////////////////////////////////////////////////////
@@ -43,11 +47,10 @@ class CIA extends DeepState<TestState> {
     }
 }
 
-/*
-class DataClassStore extends DeepState<DataClassState> {
-    public function new(initialState) super(initialState);
+class FBI extends DeepState<DataClassState> {
+    public function new(initialState, middlewares = null) 
+        super(initialState, middlewares);
 }
-*/
 
 class MiddlewareLog {
     public function new() {}
@@ -85,6 +88,7 @@ class MiddlewareAlert {
 class DeepStateTests extends buddy.SingleSuite {
     public function new() {
         var asset : CIA;
+        var asset2 : FBI;
         var initialState : TestState = {
             score: 0,
             person: {

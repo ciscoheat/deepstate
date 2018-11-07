@@ -57,7 +57,7 @@ class DeepState<T> {
         var previousState = this.state;
 
         // Apply middleware
-        this.state = {
+        var newState = {
             var dispatch : Action -> T = updateState;
 
             for(m in this.middlewares.reverse()) {
@@ -67,6 +67,9 @@ class DeepState<T> {
             // Set final state for this update
             dispatch(action);
         }
+
+        // Change state
+        this.state = newState;
 
         // Notify subscribers
         {
@@ -83,14 +86,14 @@ class DeepState<T> {
 
             for(l in this.listeners.copy()) switch l {
                 case Full(listener):
-                    listener(previousState, this.state);
+                    listener(previousState, newState);
                 case Partial(paths, listener):
                     var shouldCall = false;
                     var parameters : Array<Dynamic> = [];
 
                     for(path in paths) {
                         var prevValue = getFieldInState(previousState, path);
-                        var currentValue = getFieldInState(this.state, path);
+                        var currentValue = getFieldInState(newState, path);
                         shouldCall = shouldCall || prevValue != currentValue;
                         parameters.push(currentValue);
                     }
@@ -100,7 +103,7 @@ class DeepState<T> {
             }
         }
 
-        return this.state;
+        return newState;
     }
 
     // Make a deep copy of a new state object.
