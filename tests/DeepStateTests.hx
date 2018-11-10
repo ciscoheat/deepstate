@@ -342,7 +342,7 @@ class DeepStateTests extends buddy.SingleSuite {
                 });
             });
 
-            @include describe("Class instantiation", {
+            describe("Class instantiation", {
                 it("should create and update new objects with the data as parameter in the constructor", {
                     var currentState = asset2.state;
                     var currentPerson = currentState.person;

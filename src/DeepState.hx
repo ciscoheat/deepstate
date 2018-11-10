@@ -14,6 +14,8 @@ using Lambda;
 @:autoBuild(ds.internal.DeepStateInfrastructure.build())
 class DeepState<T> {
     #if !macro
+    static final allStateObjects = new Map<String, Map<String, {cls: Class<Dynamic>, fields: Array<String>}>>();
+
     public var state(default, null) : T;
 
     final middlewares : ImmutableArray<Middleware<T>>;
@@ -22,23 +24,29 @@ class DeepState<T> {
 
     function new(initialState : T, middlewares : ImmutableArray<Middleware<T>> = null) {
         this.state = initialState;
-        // TODO: Reverse in constructor instead of when used
-        this.middlewares = middlewares == null ? [] : middlewares;
+        this.middlewares = middlewares == null ? [] : middlewares.reverse();
         this.listeners = [];
-
-        // TODO: Make this static
-        this.stateObjects = new Map<String, {cls: Class<Dynamic>, fields: Array<String>}>();
 
         // Restore metadata, that will be used to create a new state object.
         var cls = Type.getClass(this);
-        var stateObjects = haxe.rtti.Meta.getType(cls).field("stateObjects")[0];
-        
-        for(key in Reflect.fields(stateObjects)) {
-            var o : DynamicAccess<Dynamic> = Reflect.field(stateObjects, key);
-            this.stateObjects.set(key, {
-                cls: Type.resolveClass(o.get('cls')),
-                fields: o.get('fields')
-            });
+        var name = Type.getClassName(cls);
+
+        this.stateObjects = if(allStateObjects.exists(name))
+            allStateObjects.get(name)
+        else {
+            var map = new Map<String, {cls: Class<Dynamic>, fields: Array<String>}>();
+            var metadata = haxe.rtti.Meta.getType(cls).field("stateObjects")[0];
+            
+            for(key in Reflect.fields(metadata)) {
+                var o : DynamicAccess<Dynamic> = Reflect.field(metadata, key);
+                map.set(key, {
+                    cls: Type.resolveClass(o.get('cls')),
+                    fields: o.get('fields')
+                });
+            }
+
+            allStateObjects.set(name, map);
+            map;
         }
     }
 
@@ -126,7 +134,7 @@ class DeepState<T> {
         var newState = {
             var dispatch : Action -> T = updateState;
 
-            for(m in this.middlewares.reverse()) {
+            for(m in this.middlewares) {
                 dispatch = m.bind(this.state, dispatch);
             }
 
