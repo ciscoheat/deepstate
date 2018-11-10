@@ -99,9 +99,9 @@ class DeepState<T> {
                 if(!metadata.fields.has(field))
                     throw 'Field not found in state: $fullPath';
 
-                // TODO: getProperty may not be necessary since all fields are final.
+                // If problems, use getProperty instead of field.
                 for(f in metadata.fields) 
-                    data.set(f, Reflect.getProperty(currentObj, f));
+                    data.set(f, Reflect.field(currentObj, f));
 
                 data.set(field, newValue);
 
@@ -128,6 +128,7 @@ class DeepState<T> {
         }
 
         // Save for listeners
+        var listeners = this.listeners.copy();
         var previousState = this.state;
 
         // Apply middleware
@@ -158,7 +159,7 @@ class DeepState<T> {
                 return output;
             }
 
-            for(l in this.listeners.copy()) switch l {
+            for(l in listeners) switch l {
                 case Full(listener):
                     listener(previousState, newState);
                 case Partial(paths, listener):
@@ -166,7 +167,7 @@ class DeepState<T> {
                     var parameters : Array<Dynamic> = [];
 
                     for(path in paths) {
-                        // TODO: Ignore value changes, always call if in path.
+                        // TODO: Ignore value changes, always call if in path?
                         var prevValue = getFieldInState(previousState, path);
                         var currentValue = getFieldInState(newState, path);
                         shouldCall = shouldCall || prevValue != currentValue;
