@@ -7,33 +7,17 @@ import haxe.macro.Expr;
 import haxe.macro.Type;
 import ds.ImmutableArray;
 import haxe.DynamicAccess;
-import ds.internal.StateNode;
 
 using Lambda;
 using haxe.macro.TypeTools;
 using haxe.macro.MacroStringTools;
-
-private enum StateNode {
-    Anon(fields : ImmutableArray<String>);
-    Class(clsName : String, fields : ImmutableArray<String>);
-}
 
 /**
  * A macro build class for checking that the state type is final,
  * and storing path => type data for quick access to type checking.
  */
 class DeepStateInfrastructure {
-    /*
-    static public var pathMap(default, null) : Map<String, Map<String, ComplexType>> 
-        = new Map<String, Map<String, ComplexType>>();
-    */
-
     static public function build() {
-        //var stateType : DefType;
-        //var pathToType = new Map<String, ComplexType>();
-        //var pathAccess = new Map<String, Expr>();
-        //var defaultState = new DynamicAccess<Dynamic>();
-        
         // { "state.field": {cls: clsName, fields: [f1,f2,f3,...]} }
         var objectFields = new haxe.DynamicAccess<{cls: String, fields: Array<String>}>();
 
@@ -112,10 +96,6 @@ class DeepStateInfrastructure {
                 case x:
                     Context.error('Unsupported DeepState type for ${name.join(".")}: $x', Context.currentPos());
             }
-
-            //var nameStr = name.join(".");
-            //pathToType.set(nameStr, Context.toComplexType(type));
-            //pathAccess.set(nameStr, macro () -> cast $p{name.unshift('state').toArray()});
         }
 
         /////////////////////////////////////////////////////////////
@@ -134,48 +114,6 @@ class DeepStateInfrastructure {
         cls.meta.add("stateObjects", [macro $v{objectFields}], cls.pos);
 
         return null;
-
-        //pathMap.set(cls.pack.toDotPath(cls.name), pathToType);
-
-        /*
-        var fields = Context.getBuildFields();
-        fields.push({
-            access: [APrivate, AFinal],
-            doc: "Internal DeepState field for path access.",
-            kind: FVar(macro : Map<String, Void -> Any>, macro new Map<String, Void -> Any>()),
-            name: "_dsPathAccess",
-            meta: [{name: ":noCompletion", pos: Context.currentPos()}],
-            pos: Context.currentPos()
-        });
-
-        switch fields.find(f -> f.name == "new").kind {
-            case FFun(f):
-                var values = [for(key in pathAccess.keys()) {
-                    expr: EBinop(OpArrow, macro $v{key}, pathAccess[key]),
-                    pos: pathAccess[key].pos
-                }];
-
-                var arrayExpr = {expr: EArrayDecl(values), pos: Context.currentPos()};
-
-                f.expr = switch f.expr.expr {
-                    case EBlock(exprs):
-                        exprs.push(arrayExpr);
-                        f.expr;
-                    case x:
-                        {
-                            expr: EBlock([{
-                                expr: f.expr.expr,
-                                pos: f.expr.pos
-                            }, arrayExpr]),
-                            pos: f.expr.pos
-                        }
-                }
-            case _:
-                Context.error("Invalid constructor.", fields.find(f -> f.name == "new").pos);
-        };
-
-        return fields;
-        */
     }
 }
 #end

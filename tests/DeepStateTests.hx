@@ -47,10 +47,19 @@ class CIA extends DeepState<TestState> {
     }
 }
 
-@:keep
 class FBI extends DeepState<DataClassState> {
     public function new(initialState, middlewares = null) 
         super(initialState, middlewares);
+
+    public function changeName(first : String, last : String) {
+        updateMap([
+            state.person.firstName => name -> first == null ? name : first,
+            state.person.lastName => name -> last == null ? name : last
+        ]);
+    }
+
+    public function setScore(score : Int)
+        updateIn(state.score, score);
 }
 
 class MiddlewareLog {
@@ -330,6 +339,34 @@ class DeepStateTests extends buddy.SingleSuite {
 
                 it("should unify between arguments for type safety", {
                     CompilationShould.failFor(asset.changeFirstName(123));
+                });
+            });
+
+            @include describe("Class instantiation", {
+                it("should create and update new objects with the data as parameter in the constructor", {
+                    var currentState = asset2.state;
+                    var currentPerson = currentState.person;
+
+                    asset2.changeName('Giuseppe', 'Volpi');
+
+                    asset2.state.should.not.be(currentState);
+                    asset2.state.person.should.not.be(currentPerson);
+
+                    asset2.state.person.firstName.should.be("Giuseppe");
+                    asset2.state.person.lastName.should.be("Volpi");
+
+                    asset2.update({
+                        type: 'Full',
+                        updates: [{
+                            path: '',
+                            value: FBIstate
+                        }]
+                    });
+                    asset2.state.should.be(currentState);
+                });
+
+                it("should throw when validation fails for DataClass objects", {
+                    (function() asset2.setScore(-100)).should.throwType(String);
                 });
             });
         });

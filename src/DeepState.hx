@@ -53,36 +53,6 @@ class DeepState<T> {
 
     /////////////////////////////////////////////////////////////////
 
-    // Create a new object based on the current one, replacing a single field,
-    // representing a state path.
-    function createNew(currentObj : Any, fullPath : String, field : String, newValue : Any) : Any {
-        return if(!stateObjects.exists(fullPath)) {
-            // Anonymous structure
-            var data = Reflect.copy(currentObj);
-
-            if(!data.hasField(field))
-                throw 'Field not found in state: $fullPath';
-
-            Reflect.setField(data, field, newValue);
-            data;
-        } else {
-            // Class instantiation
-            var metadata = stateObjects.get(fullPath);
-            var data = new haxe.DynamicAccess<Dynamic>();
-
-            if(!metadata.fields.has(field))
-                throw 'Field not found in state: $fullPath';
-
-            // TODO: getProperty may not be necessary since all fields are final.
-            for(f in metadata.fields) 
-                data.set(f, Reflect.getProperty(currentObj, f));
-
-            data.set(field, newValue);
-
-            Type.createInstance(metadata.cls, [data]);
-        }
-    }
-
     // Make a deep copy of a new state object.
     function createAndReplace(currentState : T, path : ImmutableArray<String>, newValue : Any) : T {
         if(path[0] != "") path = path.unshift("");
@@ -101,39 +71,42 @@ class DeepState<T> {
 
         //trace('========='); trace('$path -> $newValue'); trace(chain);
 
-        var newValue : Dynamic = newValue;
+        // Create a new object based on the current one, replacing a single field,
+        // representing a state path.
+        function createNew(currentObj : Any, fullPath : String, field : String, newValue : Any) : Any {
+            return if(!stateObjects.exists(fullPath)) {
+                // Anonymous structure
+                var data = Reflect.copy(currentObj);
 
+                if(!data.hasField(field))
+                    throw 'Field not found in state: $fullPath';
+
+                Reflect.setField(data, field, newValue);
+                data;
+            } else {
+                // Class instantiation
+                var metadata = stateObjects.get(fullPath);
+                var data = new haxe.DynamicAccess<Dynamic>();
+
+                if(!metadata.fields.has(field))
+                    throw 'Field not found in state: $fullPath';
+
+                // TODO: getProperty may not be necessary since all fields are final.
+                for(f in metadata.fields) 
+                    data.set(f, Reflect.getProperty(currentObj, f));
+
+                data.set(field, newValue);
+
+                Type.createInstance(metadata.cls, [data]);
+            }
+        }
+
+        var newValue : Dynamic = newValue;
         for(c in chain)
             newValue = createNew(c.currentObj, c.fullPath, c.field, newValue);
 
         return cast newValue;
-
-        /*
-        new0 = Cv
-        new1 = Bv x i-1 new0
-        new2 = Av x i-1 new1
-        new3 = Sv x i-1 new2
-        return new3
-        */
     }
-
-    /*
-    // Make a deep copy of a new state object.
-    function mutateStateCopy(newState : DynamicAccess<Dynamic>, updatePath : DeepStateNode, newValue : Any) : Void {
-        var nodeName = updatePath.name();
-        if(!newState.exists(nodeName)) throw "Field not found in state: " + updatePath;
-
-        //trace('Updating: $updatePath');
-        if(!updatePath.hasNext()) {
-            //trace('updating $nodeName and finishing.');
-            newState.set(nodeName, newValue);
-        } else {
-            var copy = Reflect.copy(newState.get(nodeName));            
-            newState.set(nodeName, copy);
-            mutateStateCopy(copy, updatePath.next(), newValue);
-        }
-    }
-    */
 
     #if deepstate_public_update public #end
     function update(action : Action) : T {
@@ -363,40 +336,3 @@ class DeepState<T> {
         return createAction(store, actionType, _updateIn(path, newValue));
     }
 }
-
-/////////////////////////////////////////////////////////////////////
-
-/*
-private abstract DeepStateNode(ImmutableArray<String>) {
-    public inline function new(a : ImmutableArray<String>) {
-        this = a;
-    }
-
-    @:from
-    public static function fromString(s : String) {
-        return new DeepStateNode(s.split("."));
-    }
-
-    @:to
-    public function toString() return this.join(".");
-
-    public function hasNext() return this.length > 1;
-
-    public function name() return this.length == 0 ? '' : this[0];
-    public function field() return this.length == 0 ? '' : this[this.length-1];
-
-    public function prev() {
-        if(!hasNext()) throw "DeepStateNode: No more nodes."
-        else return new DeepStateNode(this.slice(0, this.length-1));
-    }
-    public function next() {
-        if(!hasNext()) throw "DeepStateNode: No more nodes."
-        else return new DeepStateNode(this.slice(1));
-    }
-
-    public function isNextLeaf() {
-        if(!hasNext()) throw "DeepStateNode: No more nodes."
-        else return this.length == 2;
-    }
-}
-*/
