@@ -47,6 +47,7 @@ class CIA extends DeepState<TestState> {
     }
 }
 
+@:keep
 class FBI extends DeepState<DataClassState> {
     public function new(initialState, middlewares = null) 
         super(initialState, middlewares);
@@ -111,8 +112,18 @@ class DeepStateTests extends buddy.SingleSuite {
             json: { name: "Meitner", place: "Ljungaverk", year: 1945 }
         };
 
+        var FBIstate = new DataClassState({
+            score: 0, 
+            person: new Person({
+                firstName: "Peter", 
+                lastName: "Wallenberg", 
+                created: Date.fromString("1929-05-29")
+            })
+        });
+
         beforeEach({
             asset = new CIA(initialState);
+            asset2 = new FBI(FBIstate);
         });
 
         describe("The Deep State", {

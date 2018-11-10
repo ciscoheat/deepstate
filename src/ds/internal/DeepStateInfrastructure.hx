@@ -13,6 +13,11 @@ using Lambda;
 using haxe.macro.TypeTools;
 using haxe.macro.MacroStringTools;
 
+private enum StateNode {
+    Anon(fields : ImmutableArray<String>);
+    Class(clsName : String, fields : ImmutableArray<String>);
+}
+
 /**
  * A macro build class for checking that the state type is final,
  * and storing path => type data for quick access to type checking.
@@ -28,86 +33,9 @@ class DeepStateInfrastructure {
         //var pathToType = new Map<String, ComplexType>();
         //var pathAccess = new Map<String, Expr>();
         //var defaultState = new DynamicAccess<Dynamic>();
-
-        function stateNodeTree(name : String, type : Type) : StateNode {
-            //if(name.last().equals(Some("state")))
-                //Context.error("A field cannot be named 'state' in a state structure.", Context.currentPos());
-
-            //trace('\\-- Testing type $type for final');
-            return switch type {
-                case TAnonymous(a):
-                    // Check if all fields in typedef are final
-                    var fields = [for(f in a.get().fields) {
-                        //trace("   \\- Testing field " + fieldName.join("."));
-                        switch f.kind {
-                            case FVar(read, write) if(write == AccNever || write == AccCtor):
-                                stateNodeTree(f.name, f.type);
-                            case _:
-                                Context.error('${f.name} is not final, type cannot be used in DeepState.', f.pos);
-                        }
-                    }];
-                    Typedef(name, fields);
-
-                case TInst(t, _):
-                    var type = t.get();
-                    trace("--------" + type.module + " - " + type.name);
-                    if(type.name == "String" && type.pack.length == 0)
-                        Var(name, "");
-                    else if(type.name == "Date" && type.pack.length == 0)
-                        Var(name, new Date(1970,0,1,1,0,0));
-                    else {
-                        // Check if all public fields in class are final
-                        var fields = [];
-                        for(field in type.fields.get()) if(field.isPublic) switch field.kind {
-                            case FVar(read, write):
-                                if(write == AccNever || write == AccCtor) 
-                                    fields.push(stateNodeTree(field.name, field.type));
-                                else
-                                    Context.error('${field.name} is not final, type cannot be used in DeepState.', type.pos);
-                            case _:
-                        };
-                        Object(name, {name: type.name, pack: type.pack}, fields);
-                    }
-                
-                case TAbstract(t, params):
-                    // Allow Int, Int64, Bool, Float and the ds.ImmutableX types 
-                    var abstractType = t.get();
-                    if(abstractType.pack.length == 0) switch abstractType.name {
-                        case "Bool": Var(name, false);
-                        case "Float": Var(name, 0.0);
-                        case "Int": Var(name, 0);
-                        case "Int64": Var(name, 0);
-                        case _: 
-                            stateNodeTree(name, Context.followWithAbstracts(abstractType.type));
-                    }
-                    else if(abstractType.pack[0] == "ds" && abstractType.name == "ImmutableJson") {
-                        Var(name, new haxe.DynamicAccess<Dynamic>());
-                    }
-                    else if(abstractType.pack[0] == "ds") switch abstractType.name {
-                        case "ImmutableArray": 
-                            stateNodeTree(name, params[0]);
-                            Array(name);
-                        case "ImmutableList": 
-                            stateNodeTree(name, params[0]);
-                            List(name);
-                        case _:
-                            stateNodeTree(name, params[0]);
-                    }
-                    else {
-                        stateNodeTree(name, Context.followWithAbstracts(abstractType.type));
-                    }
-
-                case TType(t, params):
-                    stateNodeTree(name, t.get().type);
-
-                case x:
-                    Context.error('Unsupported DeepState type for $name: $x', Context.currentPos());
-            }
-
-            //var nameStr = name.join(".");
-            //pathToType.set(nameStr, Context.toComplexType(type));
-            //pathAccess.set(nameStr, macro () -> cast $p{name.unshift('state').toArray()});
-        }
+        
+        // { "state.field": {cls: clsName, fields: [f1,f2,f3,...]} }
+        var objectFields = new haxe.DynamicAccess<{cls: String, fields: Array<String>}>();
 
         function testTypeFields(name : ImmutableArray<String>, type : Type) : Void {
             if(name.last().equals(Some("state")))
@@ -129,18 +57,27 @@ class DeepStateInfrastructure {
                     }
                 case TInst(t, _):
                     var type = t.get();
-                    if(type.name != "String" || type.pack.length != 0) {
+                    if(type.pack.length == 0 && type.name == "String") {}
+                    else if(type.pack.length == 0 && type.name == "Date") {}
+                    else {
+                        var fields = new Array<String>();
                         // Check if all public fields in class are final
                         for(field in type.fields.get()) if(field.isPublic) switch field.kind {
                             case FVar(read, write):
                                 var fieldName = name.push(field.name);
-                                if(write == AccNever || write == AccCtor) 
+                                if(write == AccNever || write == AccCtor) {
                                     testTypeFields(fieldName, field.type);
+                                    fields.push(field.name);
+                                }
                                 else {
                                     Context.error('${fieldName.join(".")} is not final, type cannot be used in DeepState.', type.pos);
                                 }
                             case _:
                         }
+
+                        // Add object information to metadata
+                        var clsName = haxe.macro.MacroStringTools.toDotPath(type.pack, type.name);
+                        objectFields.set(name.join(''), {cls: clsName, fields: fields});
                     }
                 
                 case TAbstract(t, params):
@@ -184,38 +121,17 @@ class DeepStateInfrastructure {
         /////////////////////////////////////////////////////////////
 
         var cls = Context.getLocalClass().get();
-        trace("=== " + cls.name);
+        //trace("=== " + cls.name);
 
         // Until @:genericBuild works properly, this is required
         if(cls.superClass == null || cls.superClass.params.length != 1)
             Context.error("Class must extend DeepState<T>, where T is the state type.", cls.pos);
 
         var type = cls.superClass.params[0];
-        var tree = stateNodeTree("", type);
+        testTypeFields([], type);
 
-        function printTree(node : StateNode, level = 0) {
-            var i = 0;
-            var tab = ""; while(i++ < level) tab += "  ";
-            switch node {
-                case Typedef(name, fields):
-                    trace(tab + '$name:');
-                    for(f in fields) printTree(f, level+1);
-                
-                case Object(name, typePath, fields):
-                    trace(tab + '$name ($typePath):');
-                    for(f in fields) printTree(f, level+1);
-
-                case Array(name):
-                    trace(tab + 'Array: $name');
-
-                case List(name):
-                    trace(tab + 'List: $name');
-
-                case Var(name, defaultValue):
-                    trace(tab + '$name ($defaultValue)');
-            }
-        }
-        //printTree(tree);
+        // Set metadata that DeepState will access in its constructor.
+        cls.meta.add("stateObjects", [macro $v{objectFields}], cls.pos);
 
         return null;
 
