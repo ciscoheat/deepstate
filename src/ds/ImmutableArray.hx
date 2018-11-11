@@ -1,6 +1,6 @@
 package ds;
 
-@:forward(length, concat, copy, filter, iterator, indexOf, join, lastIndexOf, map, slice, splice, toString)
+@:forward(length, iterator, indexOf, join, lastIndexOf, toString)
 abstract ImmutableArray<T>(Array<T>) {
 	@:arrayAccess inline function arrayAccess(key : Int) : T 
         return this[key];
@@ -16,7 +16,11 @@ abstract ImmutableArray<T>(Array<T>) {
     @:to public function toIterable() : Iterable<T>
         return this;
 
-    ///// Array API modifications /////
+    ///// API modifications /////
+
+    public function copy() : ImmutableArray<T> {
+        return new ImmutableArray(this.copy());
+    }
 
     public function insert(pos : Int, x : T) : ImmutableArray<T> {
         var newArray = this.copy();
@@ -59,9 +63,19 @@ abstract ImmutableArray<T>(Array<T>) {
         return newArray;
     }
 
+    public function slice(pos : Int, ?end : Int) : ImmutableArray<T> {
+        return new ImmutableArray(this.slice(pos, end));
+    }
+
     public function sort(f : T -> T -> Int) : ImmutableArray<T> {
         var newArray = this.copy();
         newArray.sort(f);
+        return newArray;
+    }
+
+    public function splice(pos : Int, len : Int) : ImmutableArray<T> {
+        var newArray = this.copy();
+        newArray.splice(pos, len);
         return newArray;
     }
 
@@ -123,10 +137,10 @@ abstract ImmutableArray<T>(Array<T>) {
     public function list()
         return Lambda.list(this);
 
-    public function map<T2>(f:T -> T2)
+    public function map<T2>(f : T -> T2)
         return new ImmutableArray(Lambda.array(Lambda.map(this, f)));
 
-    public function mapi<T2>(f:Int -> T -> T2)
+    public function mapi<T2>(f : Int -> T -> T2)
         return new ImmutableArray(Lambda.array(Lambda.mapi(this, f)));
          
 }

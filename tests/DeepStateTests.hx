@@ -126,7 +126,7 @@ class DeepStateTests extends buddy.SingleSuite {
             person: new Person({
                 firstName: "Peter", 
                 lastName: "Wallenberg", 
-                created: Date.fromString("1929-05-29")
+                created: Date.now()
             })
         });
 
@@ -363,6 +363,9 @@ class DeepStateTests extends buddy.SingleSuite {
                         }]
                     });
                     asset2.state.should.be(currentState);
+
+                    asset2.updateIn(asset2.state, FBIstate);
+                    asset2.state.should.be(currentState);
                 });
 
                 it("should throw when validation fails for DataClass objects", {
@@ -509,12 +512,15 @@ class DeepStateTests extends buddy.SingleSuite {
                 it("should work with array access", {
                     var map = ["A" => 1];
                     var immutableMap : ImmutableMap<String, Int> = map;
-                    //var newMap = immutableMap.set("B", 2);
+                    var newMap = immutableMap.set("B", 2);
+
+                    immutableMap.should.not.be(newMap);
 
                     [for(v in immutableMap.keys()) v].length.should.be(1);
                     immutableMap["A"].should.be(1);
-                    //[for(v in newMap.keys()) v].length.should.be(2);
-                    //immutableMap.should.not.be(newMap);
+
+                    [for(v in newMap.keys()) v].length.should.be(2);
+                    immutableMap.should.not.be(newMap);
                 });
             });
 

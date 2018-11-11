@@ -1,6 +1,6 @@
 package ds;
 
-@:forward(length, filter, first, isEmpty, iterator, join, last, map, toString)
+@:forward(length, first, isEmpty, iterator, join, last, toString)
 abstract ImmutableList<T>(List<T>) {
     inline function new(list : List<T>)
         this = list;
@@ -13,6 +13,8 @@ abstract ImmutableList<T>(List<T>) {
         return fromList(Lambda.list(a.copy()));
     }
 
+    ///// API modifications /////
+
     public function add(item : T) : ImmutableList<T> {
         var newList = Lambda.list(this);
         newList.add(item);
@@ -21,6 +23,14 @@ abstract ImmutableList<T>(List<T>) {
 
     public function clear() : ImmutableList<T> {
         return new List<T>();
+    }
+
+    public function filter(f : T -> Bool) : ImmutableList<T> {
+        return new ImmutableList(this.filter(f));
+    }
+
+    public function map<T2>(f : T -> T2) : ImmutableList<T2> {
+        return new ImmutableList(this.map(f));
     }
 
     public function pop() : ImmutableList<T> {
