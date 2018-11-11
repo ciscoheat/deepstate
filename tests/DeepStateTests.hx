@@ -369,6 +369,8 @@ class DeepStateTests extends buddy.SingleSuite {
                 });
 
                 it("should throw when validation fails for DataClass objects", {
+                    asset2.setScore(1);
+                    asset2.state.score.should.be(1);
                     (function() asset2.setScore(-100)).should.throwType(String);
                 });
             });
