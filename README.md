@@ -8,7 +8,7 @@ DeepState is a simple and useful immutable state container library for Haxe 4. K
 
 ### Introduction
 
-As trends come and go, extracting their essential parts is important if we want progress, which unfortunately turns out to be a repetition of history instead. So when the trend for libraries like Redux are waning, let's see if we can actually learn from it in a deeper way than just jumping to the next train.
+As trends come and go, extracting their essential parts is important if we want progress, which, unfortunately, usually turns out to be a repetition of history instead. So when the trend for libraries like Redux are waning, let's see if we can actually learn from it in a deeper way than just jumping to the next train.
 
 What did we get with the flux/redux library movement? We got plenty of stuff, like *reducers, thunks, sagas, combined reducers, dispatchers, actions, action creators...* Concepts that would make an aspiring programmer feel like there is a mountain to climb before they all fuse together into glorious understanding. It's quite a climb, but at the top, what a moment! What pride! You just want to shout from the peak how useful are all those *reducers, thunks, sagas, combined reducers, dispatchers, actions and action creators.* And you will. You talk to people about it, you encourage them to start climbing too, you write tutorials, you make everything as simple as it can possibly be, even abstracting them away until it actually feels like *you're not using them!* And life goes on, until one day:
 
@@ -186,7 +186,7 @@ class CIA extends DeepState<GameState> {
 asset.revert(logger.logs[0].state);
 ```
 
-Hopefully some standardized solution for this can be created. Open an issue if you have any ideas!
+Hopefully some standardized solution for this can be figured out. Open an issue if you have any ideas!
 
 ## Async operations
 
