@@ -60,7 +60,20 @@ class FBI extends DeepState<DataClassState> {
 
     public function setScore(score : Int)
         updateIn(state.score, score);
+
+    public function updateFullState() {
+        updateIn(state, new DataClassState({
+            score: 0, 
+            person: new Person({
+                firstName: "Hjalmar",
+                lastName: "Schacht",
+                created: Date.now()
+            })
+        }));
+    }
 }
+
+/////////////////////////////////////////////////////////////////////
 
 class MiddlewareLog {
     public function new() {}
@@ -366,6 +379,12 @@ class DeepStateTests extends buddy.SingleSuite {
 
                     asset2.updateIn(asset2.state, FBIstate);
                     asset2.state.should.be(currentState);
+                });
+
+                it("should be able to do a full state update from within the asset", {
+                    asset2.updateFullState();
+                    asset2.state.should.not.be(FBIstate);
+                    asset2.state.person.firstName.should.be("Hjalmar");
                 });
 
                 it("should throw when validation fails for DataClass objects", {
