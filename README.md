@@ -72,23 +72,23 @@ class CIA extends DeepState<GameState> {
 
     public function resetScore() {
         // The updateIn method can be passed a normal value for direct updates
-        return updateIn(state.score, 0);
+        updateIn(state.score, 0);
     }
 
     public function addScore(add : Int) {
         // Or a lambda function
-        return updateIn(state.score, score -> score + add);
+        updateIn(state.score, score -> score + add);
     }
 
     public function setFirstName(name) {
         // Or a partial object
-        return updateIn(state.player, {firstName: name});
+        updateIn(state.player, {firstName: name});
     }
 
     public function multipleUpdates() {
         // The updateMap method should be passed a map declaration, 
         // for multiple updates in the same action
-        return updateMap([
+        updateMap([
             state.score => s -> s + 10,
             state.player.firstName => "John Foster",
             state.timestamps => state.timestamps.push(Date.now())
@@ -262,7 +262,7 @@ The project has just started, so assume API changes. The aim is to support at le
 - [x] Observable state
 - [x] Support for DataClass
 - [ ] Support for objects with a Map-like interface
-- [ ] An option for making the asset immutable as well, instead of treating it as a state container
+- [ ] An option for making the asset itself immutable, instead of treating it as a state container
 - [ ] Your choice! Create an issue to join in.
 
 [![Build Status](https://travis-ci.org/ciscoheat/deepstate.svg?branch=master)](https://travis-ci.org/ciscoheat/deepstate)
