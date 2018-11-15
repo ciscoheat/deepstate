@@ -150,10 +150,12 @@ Finally, the middleware should return a new state `T`, which is the same as retu
 Here's a state logger that will save all state changes, which is just a quick solution. An alternative is to save the actions instead and replaying them, but that's left as an exercise!
 
 ```haxe
+import ds.Action;
+
 class MiddlewareLog<T> {
     public function new() {}
 
-    public final logs(default, null) = new Array<{state: T, type: String, timestamp: Date}>();
+    public final logs = new Array<{state: T, type: String, timestamp: Date}>();
 
     public function log(state: T, next : Action -> T, action : Action) : T {
         // Get the next state
