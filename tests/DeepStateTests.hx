@@ -28,7 +28,7 @@ class Person implements DataClass {
 
 class DataClassState implements DataClass {
     @validate(_ >= 0)
-    public final score : Int;
+    public final score : Int = 100;
     public final person : Person;
 }
 
@@ -135,7 +135,6 @@ class DeepStateTests extends buddy.SingleSuite {
         };
 
         var FBIstate = new DataClassState({
-            score: 0, 
             person: new Person({
                 firstName: "Peter", 
                 lastName: "Wallenberg", 
@@ -359,6 +358,8 @@ class DeepStateTests extends buddy.SingleSuite {
                 it("should create and update new objects with the data as parameter in the constructor", {
                     var currentState = asset2.state;
                     var currentPerson = currentState.person;
+
+                    asset2.state.score.should.be(100);
 
                     asset2.changeName('Giuseppe', 'Volpi');
 

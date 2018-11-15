@@ -93,6 +93,9 @@ class DeepStateInfrastructure {
                 case TType(t, params):
                     testTypeFields(name, t.get().type);
 
+                case TLazy(f):
+                    testTypeFields(name, f());
+
                 case x:
                     Context.error('Unsupported DeepState type for ${name.join(".")}: $x', Context.currentPos());
             }
