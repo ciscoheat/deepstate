@@ -12,24 +12,37 @@ using Reflect;
 using Lambda;
 
 @:autoBuild(ds.internal.DeepStateInfrastructure.build())
+#if deepstate_immutable_asset
+class DeepState<S, T> {
+#else
 class DeepState<T> {
+#end
     #if !macro
     static final allStateObjects = new Map<String, Map<String, {cls: Class<Dynamic>, fields: Array<String>}>>();
 
+    #if deepstate_immutable_asset
+    public final state : T;
+    final cls : Class<Dynamic>;
+    #else
     public var state(default, null) : T;
+    #end
 
     final middlewares : ImmutableArray<Middleware<T>>;
     final listeners : Array<Subscription<T>>;
     final stateObjects : Map<String, {cls: Class<Dynamic>, fields: Array<String>}>;
 
-    function new(initialState : T, middlewares : ImmutableArray<Middleware<T>> = null) {
+    function new(initialState : T, middlewares : ImmutableArray<Middleware<T>> = null, listeners : Array<Subscription<T>> = null) {
         this.state = initialState;
-        this.middlewares = middlewares == null ? [] : middlewares.reverse();
-        this.listeners = [];
+        this.middlewares = middlewares == null ? [] : middlewares;
+        this.listeners = listeners == null ? [] : listeners;
 
         // Restore metadata, that will be used to create a new state object.
         var cls = Type.getClass(this);
         var name = Type.getClassName(cls);
+
+        #if deepstate_immutable_asset
+        this.cls = cls;
+        #end
 
         this.stateObjects = if(allStateObjects.exists(name))
             allStateObjects.get(name)
@@ -115,7 +128,7 @@ class DeepState<T> {
         return cast newValue;
     }
 
-    @:noCompletion public function updateState(action : Action) : T {
+    @:noCompletion public function updateState(action : Action) : #if deepstate_immutable_asset S #else T #end {
         // Last function in middleware chain - create a new state.
         function copyAndUpdateState(action : Action) : T {
             var newState = this.state;
@@ -126,6 +139,7 @@ class DeepState<T> {
         }
 
         // Save for listeners
+        var middleware = this.middlewares.reverse();
         var listeners = this.listeners.copy();
         var previousState = this.state;
 
@@ -133,7 +147,7 @@ class DeepState<T> {
         var newState = {
             var dispatch : Action -> T = copyAndUpdateState;
 
-            for(m in this.middlewares) {
+            for(m in middleware) {
                 dispatch = m.bind(this.state, dispatch);
             }
 
@@ -141,14 +155,20 @@ class DeepState<T> {
             dispatch(action);
         }
 
+        #if (!deepstate_immutable_asset)
         // Change state
         this.state = newState;
+        #end
 
         // Notify subscribers
         for(l in listeners)
             callListener(l, previousState, newState);
 
+        #if deepstate_immutable_asset
+        return cast Type.createInstance(this.cls, [newState, this.middlewares, this.listeners]);
+        #else
         return newState;
+        #end
     }
 
     function getFieldInState(state : T, path : String) {
@@ -272,7 +292,8 @@ class DeepState<T> {
         }
     }
 
-    static function createAction(store : ExprOf<DeepState<Dynamic>>, actionType : Null<ExprOf<String>>, updates : Array<Expr>) : Expr {
+    static function createAction(#if deepstate_immutable_asset store : ExprOf<DeepState<Dynamic,Dynamic>> #else store : ExprOf<DeepState<Dynamic>> #end, 
+        actionType : Null<ExprOf<String>>, updates : Array<Expr>) : Expr {
         var aType = actionType == null 
             ? macro $v{Context.getLocalClass().get().name + "." + Context.getLocalMethod()}
             : actionType;

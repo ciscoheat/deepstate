@@ -123,11 +123,17 @@ class DeepStateInfrastructure {
 
         var cls = Context.getLocalClass().get();
 
-        // Until @:genericBuild works properly, this is required
+        #if (!deepstate_immutable_asset)
         if(cls.superClass == null || cls.superClass.params.length != 1)
             Context.error("Class must extend DeepState<T>, where T is the state type.", cls.pos);
 
         var type = cls.superClass.params[0];
+        #else
+        if(cls.superClass == null || cls.superClass.params.length != 2)
+            Context.error("Class must extend DeepState<S, T>, where S is the class itself, and T is the state type.", cls.pos);
+
+        var type = cls.superClass.params[1];
+        #end
         testTypeFields([], type);
 
         // Set metadata that DeepState will access in its constructor.

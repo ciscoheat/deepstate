@@ -1,7 +1,7 @@
 -lib buddy
 -lib dataclass
 
--D deepstate-public-update
+#-D deepstate-immutable-asset
 
 #--times
 #-D macro-times

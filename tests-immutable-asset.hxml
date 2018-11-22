@@ -1,0 +1,18 @@
+-lib buddy
+-lib dataclass
+
+-debug
+-cp src
+-cp tests
+
+#--times
+#-D macro-times
+-D analyzer-optimize
+-dce full
+
+-D deepstate-immutable-asset
+
+-main DeepStateImmutableAssetTests
+-neko bin/deepstate_immutable_asset.n
+
+-cmd neko bin/deepstate_immutable_asset.n
