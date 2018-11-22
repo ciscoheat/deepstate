@@ -110,7 +110,7 @@ class Main {
 
 `updateIn` and `updateMap` is the whole API for updating the state. Everything is type-checked at compile time, including that all state fields are final.
 
-Every call to one of those update methods is considered an action, we might as well call it an **action method**. The action type is automatically derived from the name of the calling method. You can supply your own type (a `String`) as a final parameter to the update methods if you want.
+Every call to one of those update methods is considered an action. The action type is automatically derived from the name of the calling class and method. You can supply your own type (a `String`) as a final parameter to the update methods if you want.
 
 Run the test:
 
@@ -171,29 +171,19 @@ Hopefully some standardized solution for this can be figured out. Open an issue 
 
 ## Async operations
 
-As you may have noticed, no assumptions are made about the action methods, which means that any future behavior can be supported. To support Promises, just return them from your action methods.
+No assumptions are made about the actions, which means that any future behavior can be supported. For example, to support Promises, let them gather the required data, and finally call `updateIn` or `updateMap`.
 
 ```haxe
-class CIAsync extends DeepState<GameState> {
-    final api : YourApi;
-
-    // Extend the default constructor:
-    public function new(initialState, api : YourApi, middlewares = null) {
-        super(initialState, middlewares);
-        this.api = api;
-    }
-
-    // Return whatever you want, for example using Promises:
-    public function changeName(firstName : String, lastName : String) {
-        return new Promise((resolve, reject) -> {
-            api.checkValidName(firstName, lastName).then(() -> {
-                resolve(updateIn(state.player, { 
-                    firstName: firstName, 
-                    lastName: lastName
-                }));
-            }, reject);
-        });
-    }
+public function changeName(firstName : String, lastName : String) {
+    return new Promise((resolve, reject) -> {
+        api.checkValidName(firstName, lastName).then(() -> {
+            asset.updateIn(asset.state.player, { 
+                firstName: firstName, 
+                lastName: lastName
+            });
+            resolve(asset.state.player);
+        }, reject);
+    });
 }
 ```
 
