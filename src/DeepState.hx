@@ -28,13 +28,17 @@ class DeepState<T> {
     #end
 
     final middlewares : ImmutableArray<Middleware<T>>;
+    #if (!deepstate_immutable_asset)
     final listeners : Array<Subscription<T>>;
+    #end
     final stateObjects : Map<String, {cls: Class<Dynamic>, fields: Array<String>}>;
 
-    function new(initialState : T, middlewares : ImmutableArray<Middleware<T>> = null, listeners : Array<Subscription<T>> = null) {
+    function new(initialState : T, middlewares : ImmutableArray<Middleware<T>> = null) {
         this.state = initialState;
         this.middlewares = middlewares == null ? [] : middlewares;
+        #if (!deepstate_immutable_asset)
         this.listeners = listeners == null ? [] : listeners;
+        #end
 
         // Restore metadata, that will be used to create a new state object.
         var cls = Type.getClass(this);
@@ -63,6 +67,7 @@ class DeepState<T> {
         }
     }
 
+    #if (!deepstate_immutable_asset)
     @:noCompletion public function subscribe(subscription: Subscription<T>, immediateCall = false) : Void -> Void {
         listeners.push(subscription);
         if(immediateCall) {
@@ -70,6 +75,7 @@ class DeepState<T> {
         }
         return function() listeners.remove(subscription);
     }
+    #end
 
     /////////////////////////////////////////////////////////////////
 
@@ -138,10 +144,11 @@ class DeepState<T> {
             return newState;
         }
 
-        // Save for listeners
-        var middleware = this.middlewares.reverse();
-        var listeners = this.listeners.copy();
         var previousState = this.state;
+        var middleware = this.middlewares.reverse();
+        #if (!deepstate_immutable_asset)
+        var listeners = this.listeners.copy();
+        #end
 
         // Apply middleware
         var newState = {
@@ -158,16 +165,14 @@ class DeepState<T> {
         #if (!deepstate_immutable_asset)
         // Change state
         this.state = newState;
-        #end
 
         // Notify subscribers
         for(l in listeners)
             callListener(l, previousState, newState);
 
-        #if deepstate_immutable_asset
-        return cast Type.createInstance(this.cls, [newState, this.middlewares, this.listeners]);
-        #else
         return newState;
+        #else
+        return cast Type.createInstance(this.cls, [newState, this.middlewares]);
         #end
     }
 
@@ -309,6 +314,7 @@ class DeepState<T> {
     }    
     #end
 
+    #if (!deepstate_immutable_asset)
     public macro function subscribeTo(store : ExprOf<DeepState<Dynamic>>, paths : Array<Expr>) {
         var listener = paths.pop();
 
@@ -360,6 +366,7 @@ class DeepState<T> {
             }
         }
     }
+    #end
 
     public macro function updateIn(store : ExprOf<DeepState<Dynamic>>, args : Array<Expr>) {
         var actionType : Expr = null;
