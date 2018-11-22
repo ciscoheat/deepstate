@@ -55,7 +55,7 @@ typedef GameState = {
         final firstName : String;
         final lastName : String;
     }
-    // For Arrays and Lists, use ImmutableArray and ImmutableList
+    // Prefix Array, List and Map with "ds.Immutable"
     final timestamps : ds.ImmutableArray<Date>;
     // For json structures:
     final json : ds.ImmutableJson;
@@ -64,46 +64,11 @@ typedef GameState = {
 // Create a Contained Immutable Asset class by extending DeepState<T>,
 // where T is the type of your program state.
 class CIA extends DeepState<GameState> {
-    // A default constructor is useful:
     public function new(initialState, middlewares = null) 
         super(initialState, middlewares);
-
-    // Now create actions in this class, like this:
-
-    public function resetScore() {
-        // The updateIn method can be passed a normal value for direct updates
-        updateIn(state.score, 0);
-    }
-
-    public function addScore(add : Int) {
-        // Or a lambda function
-        updateIn(state.score, score -> score + add);
-    }
-
-    public function setFirstName(name) {
-        // Or a partial object
-        updateIn(state.player, {firstName: name});
-    }
-
-    public function multipleUpdates() {
-        // The updateMap method should be passed a map declaration, 
-        // for multiple updates in the same action
-        updateMap([
-            state.score => s -> s + 10,
-            state.player.firstName => "John Foster",
-            state.timestamps => state.timestamps.push(Date.now())
-        ]);
-    }
 }
-```
 
-That's the whole API for updating the state. Everything is type-checked at compile time, including that all fields are final.
-
-Every method calling an `update` method is considered an action, we might as well call it an **action method**. The action type is automatically derived from the name of that method. You can supply your own type (a `String`) as a final parameter to the `update` methods if you want.
-
-To complete the test, add a `Main` class to the **Main.hx** file:
-
-```haxe
+// And a Main class to use it.
 class Main {
     static function main() {
         // Instantiate your Contained Immutable Asset with an initial state
@@ -116,24 +81,38 @@ class Main {
             timestamps: [Date.now()],
             json: { name: "Meitner", place: "Ljungaverk", year: 1945 }
         });
+
+        // Now create actions like this:
+
+        // The updateIn method can be passed a normal value for direct updates
+        asset.updateIn(asset.state.score, 0);
+
+        // Or a lambda function
+        asset.updateIn(asset.state.score, score -> score + 1);
+
+        // Or a partial object
+        asset.updateIn(asset.state.player, {firstName: "Avery"});
+
+        // The updateMap method should be passed a map declaration, 
+        // for multiple updates in the same action
+        asset.updateMap([
+            asset.state.score => s -> s + 10,
+            asset.state.player.firstName => "John Foster",
+            asset.state.timestamps => asset.state.timestamps.push(Date.now())
+        ]);
         
         // Access state as you expect:
         trace(asset.state);
-
-        var score = asset.state.score;
-        trace(score); // 0
-
-        // Update the state by the methods in the asset
-        var newState = asset.addScore(10);
-
-        trace(newState.score); // 10
-        // Same as:
-        trace(asset.state.score); // 10
+        trace(asset.state.score); // 11
     }
 }
 ```
 
-Execute it:
+`updateIn` and `updateMap` is the whole API for updating the state. Everything is type-checked at compile time, including that all state fields are final.
+
+Every call to one of those update methods is considered an action, we might as well call it an **action method**. The action type is automatically derived from the name of the calling method. You can supply your own type (a `String`) as a final parameter to the update methods if you want.
+
+Run the test:
 
 `haxe -x Main -lib deepstate`
 
@@ -240,10 +219,12 @@ asset.subscribeTo(
 unsubscribe();
 ```
 
-Note that the listener function will only be called upon changes *on the selected parts of the state tree*. So in the first example, it won't be called if the score changed. If you want to listen to every change, use `subscribeToState` instead, which will be called on every update:
+If you want to call the listener immediately upon creation, which can be useful to populate objects, you can pass `true` as the last argument to `subscribeTo`.
+
+Note that the listener function will only be called upon changes *on the selected parts of the state tree*. So in the first example, it won't be called if the score changed. If you want to listen to every change, call `subscribeTo` with a function that takes two parameters, the previous and updated state:
 
 ```haxe
-var unsubscribe = asset.subscribeToState((prev, current) -> {
+var unsubscribe = asset.subscribeTo((prev, current) -> {
     if(prev.score < current.score) trace("Score increased!");
 });
 ```
@@ -251,10 +232,6 @@ var unsubscribe = asset.subscribeToState((prev, current) -> {
 ## DataClass support
 
 The library [DataClass](https://github.com/ciscoheat/dataclass) is a nice supplement to deepstate, since it has got validation, null checks, JSON export, etc, for your data. It works out-of-the-box, simply create a DataClass with final fields, and use it in `DeepState<T>`.
-
-## Compiler defines
-
-`-D deepstate-public-update` - As default, the `update` methods can only be called from within the class that inherits from `DeepState<T>`, to keep state changes in the same place. With this define, they will become public, creating a kind of free-for-all state update object, instead of the more controlled situation with action methods.
 
 ## Roadmap
 

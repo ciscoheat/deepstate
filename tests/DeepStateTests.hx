@@ -18,6 +18,11 @@ typedef TestState = {
         final json : ImmutableJson;
 }
 
+typedef RecursiveState = {
+    final node : RecursiveState;
+    final value : String;
+}
+
 class Person implements DataClass {
     public final firstName : String;
     public final lastName : String;
@@ -71,6 +76,10 @@ class FBI extends DeepState<DataClassState> {
             })
         }));
     }
+}
+
+class Recursive extends DeepState<RecursiveState> {
+    public function new() super(null);
 }
 
 /////////////////////////////////////////////////////////////////////
@@ -272,9 +281,14 @@ class DeepStateTests extends buddy.SingleSuite {
                     .should.throwType(String);
             });
 
+            it("should handle recursive typedefs", {
+                var rec = new Recursive();
+                rec.should.not.be(null);
+            });
+
             /////////////////////////////////////////////////////////
 
-            describe("The updateIn method", {
+            describe("The updateIn and updateMap method", {
                 it("should use a lambda function to update a field if passed a function", {
                     asset.updateIn(asset.state.score, score -> 1);
                     asset.updateIn(asset.state.score, score -> score + 2);
@@ -429,7 +443,7 @@ class DeepStateTests extends buddy.SingleSuite {
 
         /////////////////////////////////////////////////////////////
 
-        describe("Observers", {
+        describe("Subscribers", {
             describe("The subscribeTo method", {
                 it("should subscribe to a part of the state tree", {
                     var newName : String = null;
@@ -499,20 +513,25 @@ class DeepStateTests extends buddy.SingleSuite {
                     ));
                 });
 
-                it("should not compile if subscribing to the whole state tree", {
-                    CompilationShould.failFor(asset.subscribeTo(
-                        asset.state, (state) -> null
-                    ));
+                it("should be able to subscribe to the whole state tree", {
+                    asset.subscribeTo(asset.state, (state) -> state.score.should.be(0), true);
                 });
 
-                it("should subscribe to the whole state if using the subscribeToState method", {
-                    asset.subscribeToState((prev, current) -> {
+                it("should subscribe to the whole state if passing a function with two arguments", {
+                    asset.subscribeTo((prev, current) -> {
                         prev.should.not.be(current);
                         prev.score.should.be(0);
                         current.score.should.be(1);
                     });
 
                     asset.addScore(1);
+
+                    var calledImmediately = false;
+                    asset.subscribeTo((prev, current) -> {
+                        calledImmediately = true;
+                    }, true);
+
+                    calledImmediately.should.be(true);
                 });
 
                 it("should throw an exception when subscribing to a non-existing state field", {
@@ -523,6 +542,22 @@ class DeepStateTests extends buddy.SingleSuite {
 
                     subscribeToNonexistingPath.should.throwType(String);
                     CompilationShould.failFor(asset.subscribeTo(asset.state.notExisting, name -> null));
+                });
+
+                it("should be able to immediately trigger the listener", {
+                    var nameCalls = 0;
+
+                    var unsub = asset.subscribeTo(asset.state.person.name, name -> {
+                        nameCalls++;
+                    });
+
+                    nameCalls.should.be(0);
+
+                    asset.subscribeTo(asset.state.person.name, name -> {
+                        nameCalls++;
+                    }, true);
+
+                    nameCalls.should.be(1);
                 });
             });
         });

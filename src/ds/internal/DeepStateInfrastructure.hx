@@ -17,9 +17,20 @@ using haxe.macro.MacroStringTools;
  * and storing path => type data for quick access to type checking.
  */
 class DeepStateInfrastructure {
-    static public function build() {
+    static final checkedTypes = new Map<String, Bool>();
+
+    static public function build() {       
         // { "state.field": {cls: clsName, fields: [f1,f2,f3,...]} }
         var objectFields = new haxe.DynamicAccess<{cls: String, fields: Array<String>}>();
+
+        function setCheckedType(t : {pack : Array<String>, module: String, name: String}) {
+            var typeName = t.pack.join(".") + "." + t.module + "." + t.name;
+            checkedTypes.set(typeName, true);
+        }
+
+        function typeIsChecked(t : {pack : Array<String>, module: String, name: String}) {
+            return checkedTypes.exists(t.pack.join(".") + "." + t.module + "." + t.name);
+        }
 
         function testTypeFields(name : ImmutableArray<String>, type : Type) : Void {
             if(name.last().equals(Some("state")))
@@ -43,7 +54,8 @@ class DeepStateInfrastructure {
                     var type = t.get();
                     if(type.pack.length == 0 && type.name == "String") {}
                     else if(type.pack.length == 0 && type.name == "Date") {}
-                    else {
+                    else if(!typeIsChecked(type)) {
+                        setCheckedType(type);
                         var fields = new Array<String>();
                         // Check if all public fields in class are final
                         for(field in type.fields.get()) if(field.isPublic) switch field.kind {
@@ -65,13 +77,12 @@ class DeepStateInfrastructure {
                     }
                 
                 case TAbstract(t, params):
-                    // Allow Int, Int64, Bool, Float and the ds.ImmutableX types 
+                    // Allow Int, Bool, Float and the ds.ImmutableX types 
                     var abstractType = t.get();
                     if(abstractType.pack.length == 0 && ( 
                         abstractType.name == "Bool" || 
                         abstractType.name == "Float" ||
-                        abstractType.name == "Int" || 
-                        abstractType.name == "Int64"
+                        abstractType.name == "Int"
                     )) {} // Ok
                     else if(abstractType.pack[0] == "ds" && 
                         abstractType.name == "ImmutableJson"
@@ -91,7 +102,11 @@ class DeepStateInfrastructure {
                     }
 
                 case TType(t, params):
-                    testTypeFields(name, t.get().type);
+                    var typede = t.get();
+                    if(!typeIsChecked(typede)) {
+                        setCheckedType(typede);
+                        testTypeFields(name, typede.type);
+                    }
 
                 case TLazy(f):
                     testTypeFields(name, f());
@@ -104,7 +119,6 @@ class DeepStateInfrastructure {
         /////////////////////////////////////////////////////////////
 
         var cls = Context.getLocalClass().get();
-        //trace("=== " + cls.name);
 
         // Until @:genericBuild works properly, this is required
         if(cls.superClass == null || cls.superClass.params.length != 1)

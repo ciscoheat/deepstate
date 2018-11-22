@@ -50,13 +50,12 @@ class DeepState<T> {
         }
     }
 
-    public function subscribe(subscription: Subscription<T>) : Void -> Void {
+    @:noCompletion public function subscribe(subscription: Subscription<T>, immediateCall = false) : Void -> Void {
         listeners.push(subscription);
+        if(immediateCall) {
+            callListener(subscription, this.state, this.state, immediateCall);
+        }
         return function() listeners.remove(subscription);
-    }
-
-    public function subscribeToState(listener : T -> T -> Void) {
-        return subscribe(Full(listener));
     }
 
     /////////////////////////////////////////////////////////////////
@@ -116,8 +115,7 @@ class DeepState<T> {
         return cast newValue;
     }
 
-    #if deepstate_public_update public #end
-    function update(action : Action) : T {
+    @:noCompletion public function update(action : Action) : T {
         // Last function in middleware chain - create a new state.
         function updateState(action : Action) : T {
             var newState = this.state;
@@ -147,39 +145,41 @@ class DeepState<T> {
         this.state = newState;
 
         // Notify subscribers
-        {
-            function getFieldInState(state : T, path : String) {
-                if(path == "") return state;
-
-                var output : Dynamic = state;
-                for(p in path.split(".")) {
-                    if(!Reflect.hasField(output, p)) throw 'Field not found in state: $path';
-                    output = Reflect.field(output, p);
-                }
-                return output;
-            }
-
-            for(l in listeners) switch l {
-                case Full(listener):
-                    listener(previousState, newState);
-                case Partial(paths, listener):
-                    var shouldCall = false;
-                    var parameters : Array<Dynamic> = [];
-
-                    for(path in paths) {
-                        // TODO: Ignore value changes, always call if in path?
-                        var prevValue = if(shouldCall) null else getFieldInState(previousState, path);
-                        var currentValue = getFieldInState(newState, path);
-                        shouldCall = shouldCall || prevValue != currentValue;
-                        parameters.push(currentValue);
-                    }
-
-                    if(shouldCall)
-                        Reflect.callMethod(null, listener, parameters);
-            }
-        }
+        for(l in listeners)
+            callListener(l, previousState, newState);
 
         return newState;
+    }
+
+    function getFieldInState(state : T, path : String) {
+        if(path == "") return state;
+
+        var output : Dynamic = state;
+        for(p in path.split(".")) {
+            if(!Reflect.hasField(output, p)) throw 'Field not found in state: $path';
+            output = Reflect.field(output, p);
+        }
+        return output;
+    }
+
+    function callListener(l : Subscription<T>, previousState : T, newState : T, shouldCall = false) : Void {
+        switch l {
+            case Full(listener):
+                listener(previousState, newState);
+            case Partial(paths, listener):
+                var parameters : Array<Dynamic> = [];
+
+                for(path in paths) {
+                    // TODO: Ignore value changes, always call if in path?
+                    var prevValue = if(shouldCall) null else getFieldInState(previousState, path);
+                    var currentValue = getFieldInState(newState, path);
+                    shouldCall = shouldCall || prevValue != currentValue;
+                    parameters.push(currentValue);
+                }
+
+                if(shouldCall)
+                    Reflect.callMethod(null, listener, parameters);
+        }        
     }
 
     #end
@@ -291,37 +291,58 @@ class DeepState<T> {
     public macro function subscribeTo(store : ExprOf<DeepState<Dynamic>>, paths : Array<Expr>) {
         var listener = paths.pop();
 
-        var pathTypes = [for(p in paths) {
-            try Context.typeof(p)
-            catch(e : Dynamic) {
-                Context.error("Cannot find field or its type in state.", p.pos);
+        var callImmediate = switch listener.expr {
+            case EFunction(_, _): macro false;
+            case _:
+                if(paths.length == 0) macro false
+                else {
+                    // Last argument = bool
+                    var boolTest = listener;
+                    listener = paths.pop();
+                    boolTest;
+                }
+        }
+
+        return if(paths.length == 0) {
+            // Full state listener
+            switch listener.expr {
+                case EFunction(_, f) if(f.args.length == 2):
+                    macro $store.subscribe(ds.Subscription.Full($listener), $callImmediate);
+                case x:
+                    Context.error('Argument must be a function that takes two arguments, previous and next state.', listener.pos);
             }
-        }];
+        } else {
+            // Partial listener
+            var pathTypes = [for(p in paths) {
+                try Context.typeof(p)
+                catch(e : Dynamic) {
+                    Context.error("Cannot find field or its type in state.", p.pos);
+                }
+            }];
 
-        return switch listener.expr {
-            case EFunction(_, f) if(f.args.length == paths.length):
-                for(i in 0...paths.length)
-                    f.args[i].type = Context.toComplexType(pathTypes[i]);
+            switch listener.expr {
+                case EFunction(_, f) if(f.args.length == paths.length):
+                    for(i in 0...paths.length)
+                        f.args[i].type = Context.toComplexType(pathTypes[i]);
 
-                var stringPaths = paths.map(p -> {
-                    var path = stripPathPrefix(p);
-                    if(path == "") Context.error("Use subscribeToState to subscribe to the whole state.", p.pos);
-                    {
-                        expr: EConst(CString(path)),
-                        pos: p.pos
-                    }
-                });
+                    var stringPaths = paths.map(p -> {
+                        var path = stripPathPrefix(p);
+                        {
+                            expr: EConst(CString(path)),
+                            pos: p.pos
+                        }
+                    });
 
-                macro $store.subscribe(ds.Subscription.Partial($a{stringPaths}, $listener));
-            case x:
-                Context.error('Function must take the same number of arguments as specified fields.', listener.pos);
+                    macro $store.subscribe(ds.Subscription.Partial($a{stringPaths}, $listener), $callImmediate);
+                case x:
+                    Context.error('Function must take the same number of arguments as specified fields.', listener.pos);
+            }
         }
     }
 
-    #if deepstate_public_update public #end
-    macro function updateMap(store : ExprOf<DeepState<Dynamic>>, map : Expr, actionType : String = null) {
+    public macro function updateMap(store : ExprOf<DeepState<Dynamic>>, map : Expr, actionType : String = null) {
         function error(e) {
-            Context.error("Value must be an array map declaration: [K => V, ...]", e.pos);
+            Context.error("Parameter must be an array map declaration: [K => V, ...]", e.pos);
         }
 
         var updates = switch map.expr {
@@ -340,8 +361,7 @@ class DeepState<T> {
         return createAction(store, actionType, updates);
     }
 
-    #if deepstate_public_update public #end
-    macro function updateIn(store : ExprOf<DeepState<Dynamic>>, path : Expr, newValue : Expr, actionType : String = null) {
+    public macro function updateIn(store : ExprOf<DeepState<Dynamic>>, path : Expr, newValue : Expr, actionType : String = null) {
         return createAction(store, actionType, _updateIn(path, newValue));
     }
 }
