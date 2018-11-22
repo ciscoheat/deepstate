@@ -84,6 +84,9 @@ class DeepStateInfrastructure {
                         abstractType.name == "Float" ||
                         abstractType.name == "Int"
                     )) {} // Ok
+                    else if(abstractType.pack[0] == "haxe" && 
+                        abstractType.name == "Int64"
+                    ) {} // Ok
                     else if(abstractType.pack[0] == "ds" && 
                         abstractType.name == "ImmutableJson"
                     ) {} // Ok

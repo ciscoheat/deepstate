@@ -82,9 +82,9 @@ class Main {
             json: { name: "Meitner", place: "Ljungaverk", year: 1945 }
         });
 
-        // Now create actions like this:
+        // Now create actions using the updateIn method:
 
-        // The updateIn method can be passed a normal value for direct updates
+        // It can be passed a normal value for direct updates
         asset.updateIn(asset.state.score, 0);
 
         // Or a lambda function
@@ -93,9 +93,9 @@ class Main {
         // Or a partial object
         asset.updateIn(asset.state.player, {firstName: "Avery"});
 
-        // The updateMap method should be passed a map declaration, 
+        // It could also be passed a map declaration, 
         // for multiple updates in the same action
-        asset.updateMap([
+        asset.updateIn([
             asset.state.score => s -> s + 10,
             asset.state.player.firstName => "John Foster",
             asset.state.timestamps => asset.state.timestamps.push(Date.now())
@@ -108,9 +108,9 @@ class Main {
 }
 ```
 
-`updateIn` and `updateMap` is the whole API for updating the state. Everything is type-checked at compile time, including that all state fields are final.
+`updateIn` is the whole API for updating the state. Everything is type-checked at compile time, including that all state fields are final.
 
-Every call to one of those update methods is considered an action. The action type is automatically derived from the name of the calling class and method. You can supply your own type (a `String`) as a final parameter to the update methods if you want.
+Every call to `updateIn` is considered an action. The action type is automatically derived from the name of the calling class and method. You can supply your own type (a `String`) as a final parameter to the update methods if you want.
 
 Run the test:
 

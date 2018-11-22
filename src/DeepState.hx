@@ -115,9 +115,9 @@ class DeepState<T> {
         return cast newValue;
     }
 
-    @:noCompletion public function update(action : Action) : T {
+    @:noCompletion public function updateState(action : Action) : T {
         // Last function in middleware chain - create a new state.
-        function updateState(action : Action) : T {
+        function copyAndUpdateState(action : Action) : T {
             var newState = this.state;
             for(a in action.updates) {
                 newState = createAndReplace(newState, a.path.split("."), a.value);
@@ -131,7 +131,7 @@ class DeepState<T> {
 
         // Apply middleware
         var newState = {
-            var dispatch : Action -> T = updateState;
+            var dispatch : Action -> T = copyAndUpdateState;
 
             for(m in this.middlewares) {
                 dispatch = m.bind(this.state, dispatch);
@@ -272,17 +272,17 @@ class DeepState<T> {
         }
     }
 
-    static function createAction(store : ExprOf<DeepState<Dynamic>>, actionType : Null<String>, updates : Array<Expr>) : Expr {
-        var type = actionType == null 
-            ? Context.getLocalClass().get().name + "." + Context.getLocalMethod() 
+    static function createAction(store : ExprOf<DeepState<Dynamic>>, actionType : Null<ExprOf<String>>, updates : Array<Expr>) : Expr {
+        var aType = actionType == null 
+            ? macro $v{Context.getLocalClass().get().name + "." + Context.getLocalMethod()}
             : actionType;
 
 		// Display mode and vshaxe diagnostics have some problems with this.
 		//if(Context.defined("display") || Context.defined("display-details")) 
 			//return macro null;
 
-        return macro $store.update({
-            type: $v{type},
+        return macro $store.updateState({
+            type: $aType,
             updates: $a{updates}
         });
     }    
@@ -340,28 +340,27 @@ class DeepState<T> {
         }
     }
 
-    public macro function updateMap(store : ExprOf<DeepState<Dynamic>>, map : Expr, actionType : String = null) {
-        function error(e) {
-            Context.error("Parameter must be an array map declaration: [K => V, ...]", e.pos);
-        }
+    public macro function updateIn(store : ExprOf<DeepState<Dynamic>>, args : Array<Expr>) {
+        var actionType : Expr = null;
 
-        var updates = switch map.expr {
-            case EArrayDecl(values): values.flatMap(e -> {
-                switch e.expr {
-                    case EBinop(op, e1, e2) if(op == OpArrow):
-                        _updateIn(e1, e2);
-                    case _: 
-                        error(e); null;
-                }
-            }).array();
+        var updates = switch args[0].expr {
+            case EArrayDecl(values): 
+                if(args.length == 2) actionType = args[1];
+                values.flatMap(e -> {
+                    switch e.expr {
+                        case EBinop(op, e1, e2) if(op == OpArrow):
+                            _updateIn(e1, e2);
+                        case _: 
+                            Context.error("Parameter must be an array map declaration: [K => V, ...]", e.pos);
+                            null;
+                    }
+                }).array();
             
-            case _: error(map); null;
+            case _: 
+                if(args.length == 3) actionType = args[2];
+                _updateIn(args[0], args[1]);
         }
 
         return createAction(store, actionType, updates);
-    }
-
-    public macro function updateIn(store : ExprOf<DeepState<Dynamic>>, path : Expr, newValue : Expr, actionType : String = null) {
-        return createAction(store, actionType, _updateIn(path, newValue));
     }
 }

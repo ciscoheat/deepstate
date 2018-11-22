@@ -57,7 +57,7 @@ class FBI extends DeepState<DataClassState> {
         super(initialState, middlewares);
 
     public function changeName(first : String, last : String) {
-        updateMap([
+        updateIn([
             state.person.firstName => name -> first == null ? name : first,
             state.person.lastName => name -> last == null ? name : last
         ]);
@@ -168,7 +168,7 @@ class DeepStateTests extends buddy.SingleSuite {
                     asset.state = nextState
                 );
 
-                var newState = asset.update({
+                var newState = asset.updateState({
                     type: "full_update", 
                     updates: [{path: "", value: nextState}]
                 });
@@ -183,7 +183,7 @@ class DeepStateTests extends buddy.SingleSuite {
             });
 
             it("should not modify the first state object when multiple changes are made", {
-                var newState = asset.update({type: 'test', updates: [
+                var newState = asset.updateState({type: 'test', updates: [
                     { 
                         path: "", 
                         value: nextState
@@ -206,7 +206,7 @@ class DeepStateTests extends buddy.SingleSuite {
             });
 
             it("should update fields in the middle of the state tree", {
-                var newState = asset.update({type: 'test', updates: [{ 
+                var newState = asset.updateState({type: 'test', updates: [{ 
                     path: "person.name", 
                     value: { firstName: "Montagu", lastName: "Norman" }
                 }]});
@@ -219,7 +219,7 @@ class DeepStateTests extends buddy.SingleSuite {
             });
 
             it("should update fields at the end of the state tree", {
-                var newState = asset.update({type: 'test', updates: [{ 
+                var newState = asset.updateState({type: 'test', updates: [{ 
                     path: "person.name.firstName", 
                     value: "Wallan"
                 }]});
@@ -240,7 +240,7 @@ class DeepStateTests extends buddy.SingleSuite {
             });
 
             it("should update fields at the top of the state tree", {
-                var newState = asset.update({type: 'test', updates: [{ 
+                var newState = asset.updateState({type: 'test', updates: [{ 
                     path: "score", 
                     value: 10
                 }]});
@@ -257,7 +257,7 @@ class DeepStateTests extends buddy.SingleSuite {
 
             it("should update several fields if specified in the Action", {
                 var timestamps = asset.state.timestamps;
-                var newState = asset.update({type: 'test_multiple', updates: [
+                var newState = asset.updateState({type: 'test_multiple', updates: [
                     { path: "score", value: 100 },
                     { path: "person.name.lastName", value: "Norman" },
                     { path: "timestamps", value: timestamps.push(Date.now()) }
@@ -274,10 +274,10 @@ class DeepStateTests extends buddy.SingleSuite {
             });
 
             it("should throw if a field key doesn't exist in the state tree", {
-                asset.update.bind({type: "test", updates: [{path: "some", value: "test"}]})
+                asset.updateState.bind({type: "test", updates: [{path: "some", value: "test"}]})
                     .should.throwType(String);
 
-                asset.update.bind({type: "test", updates: [{path: "some.missing.field", value: 10}]})
+                asset.updateState.bind({type: "test", updates: [{path: "some.missing.field", value: 10}]})
                     .should.throwType(String);
             });
 
@@ -347,7 +347,7 @@ class DeepStateTests extends buddy.SingleSuite {
                 });
 
                 it("should update several values in one action if given a map", {
-                    var newState = asset.updateMap([
+                    var newState = asset.updateIn([
                         asset.state.score => score -> score + 3,
                         asset.state.person.name.lastName => "Dulles",
                         asset.state.person.name => {firstName: "John Foster"}
@@ -358,9 +358,9 @@ class DeepStateTests extends buddy.SingleSuite {
                     newState.person.name.firstName.should.be("John Foster");
                     newState.person.name.lastName.should.be("Dulles");
 
-                    CompilationShould.failFor(asset.updateMap([1,2,3]));
-                    CompilationShould.failFor(asset.updateMap([a => "b"]));
-                    CompilationShould.failFor(asset.updateMap([asset.state.score => "not an int"]));
+                    CompilationShould.failFor(asset.updateIn([1,2,3]));
+                    CompilationShould.failFor(asset.updateIn([a => "b"]));
+                    CompilationShould.failFor(asset.updateIn([asset.state.score => "not an int"]));
                 });
 
                 it("should unify between arguments for type safety", {
@@ -383,7 +383,7 @@ class DeepStateTests extends buddy.SingleSuite {
                     asset2.state.person.firstName.should.be("Giuseppe");
                     asset2.state.person.lastName.should.be("Volpi");
 
-                    asset2.update({
+                    asset2.updateState({
                         type: 'Full',
                         updates: [{
                             path: '',
@@ -438,6 +438,23 @@ class DeepStateTests extends buddy.SingleSuite {
                 MiddlewareLog.logCount.should.containExactly(["MiddlewareAlert", "MiddlewareLog"]);
 
                 asset.state.score.should.be(10);
+            });
+
+            it("should be possible to specify action type by suppling a string as last argument.", {
+                asset.updateIn(asset.state.score, 20, "Custom Score");
+
+                logger.logs.length.should.be(1);
+                logger.logs[0].type.should.be("Custom Score");
+
+                asset.state.score.should.be(20);
+
+                asset.updateIn([asset.state.score => s -> s + 20], "Another custom");
+
+                logger.logs.length.should.be(2);
+                logger.logs[0].type.should.be("Custom Score");
+                logger.logs[1].type.should.be("Another custom");
+
+                asset.state.score.should.be(40);
             });
         });
 
