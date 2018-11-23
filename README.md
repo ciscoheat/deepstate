@@ -187,34 +187,35 @@ public function changeName(firstName : String, lastName : String) {
 }
 ```
 
-## Subscriptions
+## Observables
 
-The above functionality will get you far, you could for example create a middleware for your favorite web framework, redrawing or updating its components when the state updates. By popular request however, a listener/observer feature has been added, making it easy to subscribe to specific state changes.
+The above functionality will get you far, you could for example create a middleware for your favorite web framework, redrawing or updating its components when the state updates. By popular request however, an observable feature has been added, making it easy to subscribe to state updates.
 
-Use `asset.subscribeTo` to listen to changes:
+Use `asset.subscribe` to subscribe to changes:
 
 ```haxe
-var unsubscribe = asset.subscribeTo(
+var unsubscriber = asset.subscribe(
     asset.state.player, 
     p -> trace('Player changed name to ${p.firstName} ${p.lastName}')
 );
 
-// Use an array to listen to multiple changes
-asset.subscribeTo(
+// You can observe multiple changes, and receive them in a single callback
+asset.subscribe(
     asset.state.player, asset.state.score, 
     (player, score) -> trace('Player or score updated.')
 );
 
 // Later, time to unsubscribe
-unsubscribe();
+if(!unsubscriber.closed)
+    unsubscriber.unsubscribe();
 ```
 
-If you want to call the listener immediately upon creation, which can be useful to populate objects, you can pass `true` as the last argument to `subscribeTo`.
+If you want to send the state immediately upon subscription, which can be useful to populate objects, you can pass `true` as the last argument to `subscribe`.
 
-Note that the listener function will only be called upon changes *on the selected parts of the state tree*. So in the first example, it won't be called if the score changed. If you want to listen to every change, call `subscribeTo` with a function that takes two parameters, the previous and updated state:
+The observer will only be called upon changes *on the selected parts of the state tree*. So in the first example, it won't be called if the score changed. If you want to observe all updates, call `subscribe` with a function that takes two parameters, the previous and updated state:
 
 ```haxe
-var unsubscribe = asset.subscribeTo((prev, current) -> {
+var unsubscriber = asset.subscribe((prev, current) -> {
     if(prev.score < current.score) trace("Score increased!");
 });
 ```

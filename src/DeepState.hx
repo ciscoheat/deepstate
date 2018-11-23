@@ -195,7 +195,6 @@ class DeepState<T> {
                 var parameters : Array<Dynamic> = [];
 
                 for(path in paths) {
-                    // TODO: Ignore value changes, always call if in path?
                     var prevValue = if(shouldCall) null else getFieldInState(previousState, path);
                     var currentValue = getFieldInState(newState, path);
                     shouldCall = shouldCall || prevValue != currentValue;
