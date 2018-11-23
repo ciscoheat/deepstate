@@ -6,11 +6,11 @@
 		"redux"
 	],
 	"classPath": "src",
-	"description": "Deep Immutable State Management",
+	"description": "A simple and useful immutable state container for Haxe 4",
 	"contributors": [
 		"ciscoheat"
 	],
-	"releasenote": "Deprecated updateMap, using only updateIn.",
-	"version": "0.3.0",
+	"releasenote": "API overhaul.",
+	"version": "0.4.0",
 	"url": "http://github.com/ciscoheat/deepstate/"
 }
