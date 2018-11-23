@@ -47,7 +47,7 @@ class DeepStateImmutableAssetTests extends buddy.SingleSuite {
 
         describe("The Deep State with -D deepstate-immutable-asset", {
             it("should return a new asset for each action", {
-                var newAsset = asset.updateIn(asset.state.score, 20);
+                var newAsset = asset.update(asset.state.score, 20);
 
                 newAsset.should.not.be(null);
                 newAsset.should.not.be(asset);
@@ -62,7 +62,7 @@ class DeepStateImmutableAssetTests extends buddy.SingleSuite {
 
         describe("Subscribers", {
             it("should not be available", {
-                CompilationShould.failFor(asset.subscribeTo(
+                CompilationShould.failFor(asset.subscribe(
                     asset.state.score, (score) -> null
                 ));
             });

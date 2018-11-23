@@ -367,7 +367,7 @@ class DeepState<T> {
     }
     #end
 
-    public macro function updateIn(store : ExprOf<DeepState<Dynamic>>, args : Array<Expr>) {
+    public macro function update(store : ExprOf<DeepState<Dynamic>>, args : Array<Expr>) {
         var actionType : Expr = null;
 
         var updates = switch args[0].expr {

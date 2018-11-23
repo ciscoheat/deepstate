@@ -48,7 +48,7 @@ And create a test file called **Main.hx**:
 
 ```haxe
 // This is your program state, where all fields must be final.
-typedef GameState = {
+typedef State = {
     final score : Int;
     // Nested structures are supported, as long as all fields are final.
     final player : {
@@ -63,7 +63,7 @@ typedef GameState = {
 
 // Create a Contained Immutable Asset class by extending DeepState<T>,
 // where T is the type of your program state.
-class CIA extends DeepState<GameState> {
+class CIA extends DeepState<State> {
     public function new(initialState, middlewares = null) 
         super(initialState, middlewares);
 }
@@ -82,20 +82,20 @@ class Main {
             json: { name: "Meitner", place: "Ljungaverk", year: 1945 }
         });
 
-        // Now create actions using the updateIn method:
+        // Now create actions using the update method:
 
         // It can be passed a normal value for direct updates
-        asset.updateIn(asset.state.score, 0);
+        asset.update(asset.state.score, 0);
 
         // Or a lambda function
-        asset.updateIn(asset.state.score, score -> score + 1);
+        asset.update(asset.state.score, score -> score + 1);
 
         // Or a partial object
-        asset.updateIn(asset.state.player, {firstName: "Avery"});
+        asset.update(asset.state.player, {firstName: "Avery"});
 
         // It could also be passed a map declaration, 
         // for multiple updates in the same action
-        asset.updateIn([
+        asset.update([
             asset.state.score => s -> s + 10,
             asset.state.player.firstName => "John Foster",
             asset.state.timestamps => asset.state.timestamps.push(Date.now())
@@ -108,9 +108,9 @@ class Main {
 }
 ```
 
-`updateIn` is the whole API for updating the state. Everything is type-checked at compile time, including that all state fields are final.
+`update` is the whole API for updating the state. Everything is type-checked at compile time, including that all state fields are final.
 
-Every call to `updateIn` is considered an action. The action type is automatically derived from the name of the calling class and method. You can supply your own type (a `String`) as a final parameter to the update methods if you want.
+Every call to `update` is considered an action. The action type is automatically derived from the name of the calling class and method. You can supply your own type (a `String`) as a final parameter to the update methods if you want.
 
 Run the test:
 
@@ -160,7 +160,7 @@ To restore a previous state, at the moment you need to expose some revert method
 class CIA extends DeepState<GameState> {
     // ...
     public function revert(previous : GameState)
-        updateIn(state, previous);
+        update(state, previous);
 }
 
 // Now you can turn back time:
@@ -171,13 +171,13 @@ Hopefully some standardized solution for this can be figured out. Open an issue 
 
 ## Async operations
 
-No assumptions are made about the actions, which means that any future behavior can be supported. For example, to support Promises, let them gather the required data, and finally call `updateIn` or `updateMap`.
+No assumptions are made about the actions, which means that any future behavior can be supported. For example, to support Promises, let them gather the required data, and finally call `update` or `updateMap`.
 
 ```haxe
 public function changeName(firstName : String, lastName : String) {
     return new Promise((resolve, reject) -> {
         api.checkValidName(firstName, lastName).then(() -> {
-            asset.updateIn(asset.state.player, { 
+            asset.update(asset.state.player, { 
                 firstName: firstName, 
                 lastName: lastName
             });

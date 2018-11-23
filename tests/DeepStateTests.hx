@@ -44,11 +44,11 @@ class CIA extends DeepState<TestState> {
         super(initialState, middlewares);
 
     public function addScore(add : Int) {
-        return updateIn(state.score, state.score + add);
+        return update(state.score, state.score + add);
     }
 
     public function changeFirstName(firstName) {
-        return updateIn(state.person.name.firstName, firstName);
+        return update(state.person.name.firstName, firstName);
     }
 }
 
@@ -57,17 +57,17 @@ class FBI extends DeepState<DataClassState> {
         super(initialState, middlewares);
 
     public function changeName(first : String, last : String) {
-        updateIn([
+        update([
             state.person.firstName => name -> first == null ? name : first,
             state.person.lastName => name -> last == null ? name : last
         ]);
     }
 
     public function setScore(score : Int)
-        updateIn(state.score, score);
+        update(state.score, score);
 
     public function updateFullState() {
-        updateIn(state, new DataClassState({
+        update(state, new DataClassState({
             score: 0, 
             person: new Person({
                 firstName: "Hjalmar",
@@ -288,31 +288,31 @@ class DeepStateTests extends buddy.SingleSuite {
 
             /////////////////////////////////////////////////////////
 
-            describe("The updateIn and updateMap method", {
+            describe("The update method", {
                 it("should use a lambda function to update a field if passed a function", {
-                    asset.updateIn(asset.state.score, score -> 1);
-                    asset.updateIn(asset.state.score, score -> score + 2);
+                    asset.update(asset.state.score, score -> 1);
+                    asset.update(asset.state.score, score -> score + 2);
                     asset.state.score.should.be(3);
                 });
 
                 it("should update fields when given a partial object", {
-                    var newState = asset.updateIn(asset.state.person.name, {firstName: "Marcus"});
+                    var newState = asset.update(asset.state.person.name, {firstName: "Marcus"});
 
                     testIdentity(newState);
                     newState.person.name.firstName.should.be("Marcus");
                     newState.person.name.lastName.should.be("Enberg");
 
                     CompilationShould.failFor(
-                        asset.updateIn(asset.state.person.name, {firstName: 123})
+                        asset.update(asset.state.person.name, {firstName: 123})
                     );
 
                     CompilationShould.failFor(
-                        asset.updateIn(asset.state.person.name, {doesntExist: 123})
+                        asset.update(asset.state.person.name, {doesntExist: 123})
                     );
                 });
 
                 it("should update the whole field when given a complete object", {
-                    var newState = asset.updateIn(asset.state.person.name, {
+                    var newState = asset.update(asset.state.person.name, {
                         firstName: "Marcus", lastName: "Wallenberg"
                     });
 
@@ -324,9 +324,9 @@ class DeepStateTests extends buddy.SingleSuite {
                 it("should be able to update a field if passed a single value", {
                     var storeVar : CIA = asset;
                     var newState = storeVar.changeFirstName("Montagu");
-                    //var newState = storeVar.updateIn(storeVar.state.person.name.firstName, "Montagu");
+                    //var newState = storeVar.update(storeVar.state.person.name.firstName, "Montagu");
 
-                    CompilationShould.failFor(storeVar.updateIn(storeVar.state.notAField, "Montagu"));
+                    CompilationShould.failFor(storeVar.update(storeVar.state.notAField, "Montagu"));
 
                     testIdentity(newState);
                     newState.score.should.be(0);
@@ -335,7 +335,7 @@ class DeepStateTests extends buddy.SingleSuite {
                 });
 
                 it("should update the whole state if specified", {
-                    var newState = asset.updateIn(asset.state, nextState);
+                    var newState = asset.update(asset.state, nextState);
 
                     newState.should.not.be(null);
                     newState.should.be(asset.state);
@@ -347,7 +347,7 @@ class DeepStateTests extends buddy.SingleSuite {
                 });
 
                 it("should update several values in one action if given a map", {
-                    var newState = asset.updateIn([
+                    var newState = asset.update([
                         asset.state.score => score -> score + 3,
                         asset.state.person.name.lastName => "Dulles",
                         asset.state.person.name => {firstName: "John Foster"}
@@ -358,9 +358,9 @@ class DeepStateTests extends buddy.SingleSuite {
                     newState.person.name.firstName.should.be("John Foster");
                     newState.person.name.lastName.should.be("Dulles");
 
-                    CompilationShould.failFor(asset.updateIn([1,2,3]));
-                    CompilationShould.failFor(asset.updateIn([a => "b"]));
-                    CompilationShould.failFor(asset.updateIn([asset.state.score => "not an int"]));
+                    CompilationShould.failFor(asset.update([1,2,3]));
+                    CompilationShould.failFor(asset.update([a => "b"]));
+                    CompilationShould.failFor(asset.update([asset.state.score => "not an int"]));
                 });
 
                 it("should unify between arguments for type safety", {
@@ -392,7 +392,7 @@ class DeepStateTests extends buddy.SingleSuite {
                     });
                     asset2.state.should.be(currentState);
 
-                    asset2.updateIn(asset2.state, FBIstate);
+                    asset2.update(asset2.state, FBIstate);
                     asset2.state.should.be(currentState);
                 });
 
@@ -441,14 +441,14 @@ class DeepStateTests extends buddy.SingleSuite {
             });
 
             it("should be possible to specify action type by suppling a string as last argument.", {
-                asset.updateIn(asset.state.score, 20, "Custom Score");
+                asset.update(asset.state.score, 20, "Custom Score");
 
                 logger.logs.length.should.be(1);
                 logger.logs[0].type.should.be("Custom Score");
 
                 asset.state.score.should.be(20);
 
-                asset.updateIn([asset.state.score => s -> s + 20], "Another custom");
+                asset.update([asset.state.score => s -> s + 20], "Another custom");
 
                 logger.logs.length.should.be(2);
                 logger.logs[0].type.should.be("Custom Score");
@@ -484,7 +484,7 @@ class DeepStateTests extends buddy.SingleSuite {
                     nameCalls.should.be(2);
                     lastNameCalls.should.be(0);
 
-                    asset.updateIn(asset.state.person.name.lastName, "Dulles");
+                    asset.update(asset.state.person.name.lastName, "Dulles");
                     asset.state.person.name.lastName.should.be("Dulles");
                     newName.should.be("Avery Dulles");
                     nameCalls.should.be(3);
@@ -518,7 +518,7 @@ class DeepStateTests extends buddy.SingleSuite {
                     newName.should.be("Avery Enberg (0)");
                     multiCalls.should.be(1);
 
-                    asset.updateIn(asset.state, nextState);
+                    asset.update(asset.state, nextState);
 
                     multiCalls.should.be(2);
                     asset.state.score.should.be(1);
@@ -676,7 +676,7 @@ class DeepStateTests extends buddy.SingleSuite {
 
                 it("should update as usual", {
                     var list = asset.state.json;
-                    asset.updateIn(asset.state, nextState);
+                    asset.update(asset.state, nextState);
                     asset.state.json.should.not.be(list);
                     (asset.state.json.get('place') : String).should.be("Ljungaverk");
                 });
