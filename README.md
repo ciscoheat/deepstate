@@ -171,7 +171,7 @@ Hopefully some standardized solution for this can be figured out. Open an issue 
 
 ## Async operations
 
-No assumptions are made about the actions, which means that any future behavior can be supported. For example, to support Promises, let them gather the required data, and finally call `update` or `updateMap`.
+No assumptions are made about the actions, which means that any future behavior can be supported. For example, to support Promises, let them gather the required data, and finally call `update`.
 
 ```haxe
 public function changeName(firstName : String, lastName : String) {
