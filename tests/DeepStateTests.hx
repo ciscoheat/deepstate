@@ -461,17 +461,17 @@ class DeepStateTests extends buddy.SingleSuite {
         /////////////////////////////////////////////////////////////
 
         describe("Subscribers", {
-            describe("The subscribeTo method", {
+            describe("The subscribe method", {
                 it("should subscribe to a part of the state tree", {
                     var newName : String = null;
                     var nameCalls = 0, lastNameCalls = 0;
 
-                    var unsub = asset.subscribeTo(asset.state.person.name, name -> {
+                    var unsub = asset.subscribe(asset.state.person.name, name -> {
                         newName = name.firstName + " " + name.lastName;
                         nameCalls++;
                     });
 
-                    asset.subscribeTo(asset.state.person.name.lastName, lastName -> {
+                    asset.subscribe(asset.state.person.name.lastName, lastName -> {
                         lastNameCalls++;
                     });
 
@@ -490,7 +490,9 @@ class DeepStateTests extends buddy.SingleSuite {
                     nameCalls.should.be(3);
                     lastNameCalls.should.be(1);
 
-                    unsub(); // Unsubscribing from name changes
+                    unsub.closed.should.be(false);
+                    unsub.unsubscribe();
+                    unsub.closed.should.be(true);
 
                     asset.changeFirstName("John Foster");
                     asset.state.person.name.firstName.should.be("John Foster");
@@ -504,7 +506,7 @@ class DeepStateTests extends buddy.SingleSuite {
                     var newName : String = null;
                     var multiCalls = 0;
 
-                    asset.subscribeTo(
+                    asset.subscribe(
                         asset.state.person.name, asset.state.score,
                         (name, score) -> {
                             newName = name.firstName + " " + name.lastName + ' (${asset.state.score})';
@@ -524,18 +526,18 @@ class DeepStateTests extends buddy.SingleSuite {
                 });
 
                 it("should not compile if listener has incorrect number of arguments", {
-                    CompilationShould.failFor(asset.subscribeTo(
+                    CompilationShould.failFor(asset.subscribe(
                         asset.state.person.name, asset.state.score, 
                         (name) -> null
                     ));
                 });
 
                 it("should be able to subscribe to the whole state tree", {
-                    asset.subscribeTo(asset.state, (state) -> state.score.should.be(0), true);
+                    asset.subscribe(asset.state, (state) -> state.score.should.be(0), true);
                 });
 
                 it("should subscribe to the whole state if passing a function with two arguments", {
-                    asset.subscribeTo((prev, current) -> {
+                    asset.subscribe((prev, current) -> {
                         prev.should.not.be(current);
                         prev.score.should.be(0);
                         current.score.should.be(1);
@@ -544,7 +546,7 @@ class DeepStateTests extends buddy.SingleSuite {
                     asset.addScore(1);
 
                     var calledImmediately = false;
-                    asset.subscribeTo((prev, current) -> {
+                    asset.subscribe((prev, current) -> {
                         calledImmediately = true;
                     }, true);
 
@@ -552,25 +554,25 @@ class DeepStateTests extends buddy.SingleSuite {
                 });
 
                 it("should throw an exception when subscribing to a non-existing state field", {
-                    function subscribeToNonexistingPath() {
-                        asset.subscribe(Partial(["notExisting"], name -> null));
+                    function subscribeNonexistingPath() {
+                        asset.subscribeObserver(Partial(["notExisting"], name -> null));
                         asset.changeFirstName("Anything");
                     }
 
-                    subscribeToNonexistingPath.should.throwType(String);
-                    CompilationShould.failFor(asset.subscribeTo(asset.state.notExisting, name -> null));
+                    subscribeNonexistingPath.should.throwType(String);
+                    CompilationShould.failFor(asset.subscribe(asset.state.notExisting, name -> null));
                 });
 
                 it("should be able to immediately trigger the listener", {
                     var nameCalls = 0;
 
-                    var unsub = asset.subscribeTo(asset.state.person.name, name -> {
+                    var unsub = asset.subscribe(asset.state.person.name, name -> {
                         nameCalls++;
                     });
 
                     nameCalls.should.be(0);
 
-                    asset.subscribeTo(asset.state.person.name, name -> {
+                    asset.subscribe(asset.state.person.name, name -> {
                         nameCalls++;
                     }, true);
 

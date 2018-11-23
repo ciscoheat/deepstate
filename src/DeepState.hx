@@ -29,7 +29,7 @@ class DeepState<T> {
 
     final middlewares : ImmutableArray<Middleware<T>>;
     #if (!deepstate_immutable_asset)
-    final listeners : Array<Subscription<T>>;
+    final observers : Array<Observer<T>>;
     #end
     final stateObjects : Map<String, {cls: Class<Dynamic>, fields: Array<String>}>;
 
@@ -37,7 +37,7 @@ class DeepState<T> {
         this.state = initialState;
         this.middlewares = middlewares == null ? [] : middlewares;
         #if (!deepstate_immutable_asset)
-        this.listeners = listeners == null ? [] : listeners;
+        this.observers = [];
         #end
 
         // Restore metadata, that will be used to create a new state object.
@@ -68,12 +68,12 @@ class DeepState<T> {
     }
 
     #if (!deepstate_immutable_asset)
-    @:noCompletion public function subscribe(subscription: Subscription<T>, immediateCall = false) : Void -> Void {
-        listeners.push(subscription);
+    @:noCompletion public function subscribeObserver(observer: Observer<T>, immediateCall = false) : Subscription {
+        observers.push(observer);
         if(immediateCall) {
-            callListener(subscription, this.state, this.state, immediateCall);
+            observeState(observer, this.state, this.state, immediateCall);
         }
-        return function() listeners.remove(subscription);
+        return new Subscription(function() observers.remove(observer));
     }
     #end
 
@@ -147,7 +147,7 @@ class DeepState<T> {
         var previousState = this.state;
         var middleware = this.middlewares.reverse();
         #if (!deepstate_immutable_asset)
-        var listeners = this.listeners.copy();
+        var observers = this.observers.copy();
         #end
 
         // Apply middleware
@@ -167,8 +167,8 @@ class DeepState<T> {
         this.state = newState;
 
         // Notify subscribers
-        for(l in listeners)
-            callListener(l, previousState, newState);
+        for(l in observers)
+            observeState(l, previousState, newState);
 
         return newState;
         #else
@@ -187,7 +187,7 @@ class DeepState<T> {
         return output;
     }
 
-    function callListener(l : Subscription<T>, previousState : T, newState : T, shouldCall = false) : Void {
+    function observeState(l : Observer<T>, previousState : T, newState : T, shouldCall = false) : Void {
         switch l {
             case Full(listener):
                 listener(previousState, newState);
@@ -315,7 +315,7 @@ class DeepState<T> {
     #end
 
     #if (!deepstate_immutable_asset)
-    public macro function subscribeTo(store : ExprOf<DeepState<Dynamic>>, paths : Array<Expr>) {
+    public macro function subscribe(store : ExprOf<DeepState<Dynamic>>, paths : Array<Expr>) {
         var listener = paths.pop();
 
         var callImmediate = switch listener.expr {
@@ -334,7 +334,7 @@ class DeepState<T> {
             // Full state listener
             switch listener.expr {
                 case EFunction(_, f) if(f.args.length == 2):
-                    macro $store.subscribe(ds.Subscription.Full($listener), $callImmediate);
+                    macro $store.subscribeObserver(ds.Observer.Full($listener), $callImmediate);
                 case x:
                     Context.error('Argument must be a function that takes two arguments, previous and next state.', listener.pos);
             }
@@ -360,7 +360,7 @@ class DeepState<T> {
                         }
                     });
 
-                    macro $store.subscribe(ds.Subscription.Partial($a{stringPaths}, $listener), $callImmediate);
+                    macro $store.subscribeObserver(ds.Observer.Partial($a{stringPaths}, $listener), $callImmediate);
                 case x:
                     Context.error('Function must take the same number of arguments as specified fields.', listener.pos);
             }

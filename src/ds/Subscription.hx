@@ -1,11 +1,17 @@
 package ds;
 
-import haxe.Constraints;
+class Subscription {
+    public var closed(default, null) : Bool;
+    final unsubscribeObserver : Void -> Void;
 
-/**
- * A subscriber to changes in an asset
- */
-enum Subscription<T> {
-    Partial(paths : ImmutableArray<String>, listener : Function);
-    Full(listener : T -> T -> Void);
+    public function new(unsubscribeObserver : Void -> Void) {
+        this.unsubscribeObserver = unsubscribeObserver;
+        this.closed = false;
+    }
+
+    public function unsubscribe() : Void {
+        if(closed) return;
+        closed = true;
+        unsubscribeObserver();
+    }
 }
