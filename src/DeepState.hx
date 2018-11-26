@@ -19,7 +19,7 @@ typedef ActionUpdate = {
 
 @:autoBuild(ds.internal.DeepStateInfrastructure.build())
 #if deepstate_immutable_asset
-class DeepState<S, T> {
+class DeepState<S : Constructible<T -> ?ImmutableArray<Middleware<T> -> Void>, T> {
 #else
 class DeepState<T> {
 #end
@@ -34,17 +34,11 @@ class DeepState<T> {
     #end
 
     final middlewares : ImmutableArray<Middleware<T>>;
-    #if (!deepstate_immutable_asset)
-    final observers : Array<Observer<T>>;
-    #end
     final stateObjects : Map<String, {cls: Class<Dynamic>, fields: Array<String>}>;
 
     function new(initialState : T, middlewares : ImmutableArray<Middleware<T>> = null) {
         this.state = initialState;
         this.middlewares = middlewares == null ? [] : middlewares;
-        #if (!deepstate_immutable_asset)
-        this.observers = [];
-        #end
 
         // Restore metadata, that will be used to create a new state object.
         var cls = Type.getClass(this);
@@ -72,16 +66,6 @@ class DeepState<T> {
             map;
         }
     }
-
-    #if (!deepstate_immutable_asset)
-    @:noCompletion public function subscribeObserver(observer: Observer<T>, immediateCall = false) : Subscription {
-        observers.push(observer);
-        if(immediateCall) {
-            observeState(observer, this.state, this.state, immediateCall);
-        }
-        return new Subscription(function() observers.remove(observer));
-    }
-    #end
 
     /////////////////////////////////////////////////////////////////
 
@@ -152,9 +136,6 @@ class DeepState<T> {
 
         var previousState = this.state;
         var middleware = this.middlewares.reverse();
-        #if (!deepstate_immutable_asset)
-        var observers = this.observers.copy();
-        #end
 
         // Apply middleware
         var newState = {
@@ -171,11 +152,6 @@ class DeepState<T> {
         #if (!deepstate_immutable_asset)
         // Change state
         this.state = newState;
-
-        // Notify subscribers
-        for(l in observers)
-            observeState(l, previousState, newState);
-
         return newState;
         #else
         return cast Type.createInstance(this.cls, [newState, this.middlewares]);
@@ -221,7 +197,7 @@ class DeepState<T> {
         true;
     } catch(e : Dynamic) false;
 
-    static function stripPathPrefix(path : Expr) : String {
+    public static function stripPathPrefix(path : Expr) : String {
         // Strip "asset.state" from path
         var pathStr = path.toString();
         return if(pathStr == "state" || pathStr.lastIndexOf(".state") == pathStr.length-6) 
@@ -362,60 +338,6 @@ class DeepState<T> {
             updates: $a{macroUpdates}
         });
     }    
-    #end
-
-    #if (!deepstate_immutable_asset)
-    public macro function subscribe(store : ExprOf<DeepState<Dynamic>>, paths : Array<Expr>) {
-        var listener = paths.pop();
-
-        var callImmediate = switch listener.expr {
-            case EFunction(_, _): macro false;
-            case _:
-                if(paths.length == 0) macro false
-                else {
-                    // Last argument = bool
-                    var boolTest = listener;
-                    listener = paths.pop();
-                    boolTest;
-                }
-        }
-
-        return if(paths.length == 0) {
-            // Full state listener
-            switch listener.expr {
-                case EFunction(_, f) if(f.args.length == 2):
-                    macro $store.subscribeObserver(ds.Observer.Full($listener), $callImmediate);
-                case x:
-                    Context.error('Argument must be a function that takes two arguments, previous and next state.', listener.pos);
-            }
-        } else {
-            // Partial listener
-            var pathTypes = [for(p in paths) {
-                try Context.typeof(p)
-                catch(e : Dynamic) {
-                    Context.error("Cannot find field or its type in state.", p.pos);
-                }
-            }];
-
-            switch listener.expr {
-                case EFunction(_, f) if(f.args.length == paths.length):
-                    for(i in 0...paths.length)
-                        f.args[i].type = Context.toComplexType(pathTypes[i]);
-
-                    var stringPaths = paths.map(p -> {
-                        var path = stripPathPrefix(p);
-                        {
-                            expr: EConst(CString(path)),
-                            pos: p.pos
-                        }
-                    });
-
-                    macro $store.subscribeObserver(ds.Observer.Partial($a{stringPaths}, $listener), $callImmediate);
-                case x:
-                    Context.error('Function must take the same number of arguments as specified fields.', listener.pos);
-            }
-        }
-    }
     #end
 
     public macro function update(store : ExprOf<DeepState<Dynamic>>, args : Array<Expr>) {

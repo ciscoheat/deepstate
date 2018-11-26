@@ -464,32 +464,40 @@ class DeepStateTests extends buddy.SingleSuite {
 
         /////////////////////////////////////////////////////////////
 
-        describe("Subscribers", {
+        describe("Observables", {
+            var obs : Observable<TestState>;
+            var observedAsset : CIA;
+            
+            beforeEach({
+                obs = new Observable<TestState>();
+                observedAsset = new CIA(initialState, [obs.observe]);
+            });
+
             describe("The subscribe method", {
                 it("should subscribe to a part of the state tree", {
                     var newName : String = null;
                     var nameCalls = 0, lastNameCalls = 0;
 
-                    var unsub = asset.subscribe(asset.state.person.name, name -> {
+                    var unsub = obs.subscribe(observedAsset.state.person.name, name -> {
                         newName = name.firstName + " " + name.lastName;
                         nameCalls++;
                     });
 
-                    asset.subscribe(asset.state.person.name.lastName, lastName -> {
+                    obs.subscribe(observedAsset.state.person.name.lastName, lastName -> {
                         lastNameCalls++;
                     });
 
-                    asset.changeFirstName("Avery");
+                    observedAsset.changeFirstName("Avery");
                     newName.should.be("Avery Enberg");
                     nameCalls.should.be(1);
                     lastNameCalls.should.be(0);
 
-                    asset.changeFirstName("Avery");
+                    observedAsset.changeFirstName("Avery");
                     nameCalls.should.be(2);
                     lastNameCalls.should.be(0);
 
-                    asset.update(asset.state.person.name.lastName, "Dulles", "UpdateLastName");
-                    asset.state.person.name.lastName.should.be("Dulles");
+                    observedAsset.update(observedAsset.state.person.name.lastName, "Dulles", "UpdateLastName");
+                    observedAsset.state.person.name.lastName.should.be("Dulles");
                     newName.should.be("Avery Dulles");
                     nameCalls.should.be(3);
                     lastNameCalls.should.be(1);
@@ -498,87 +506,91 @@ class DeepStateTests extends buddy.SingleSuite {
                     unsub.unsubscribe();
                     unsub.closed.should.be(true);
 
-                    asset.changeFirstName("John Foster");
-                    asset.state.person.name.firstName.should.be("John Foster");
-                    asset.state.person.name.lastName.should.be("Dulles");
+                    observedAsset.changeFirstName("John Foster");
+                    observedAsset.state.person.name.firstName.should.be("John Foster");
+                    observedAsset.state.person.name.lastName.should.be("Dulles");
                     newName.should.be("Avery Dulles");
                     nameCalls.should.be(3);
-                    lastNameCalls.should.be(1);
+                    lastNameCalls.should.be(1);                    
                 });
 
                 it("should subscribe with multiple checks if passed multiple methods", {
                     var newName : String = null;
                     var multiCalls = 0;
 
-                    asset.subscribe(
-                        asset.state.person.name, asset.state.score,
+                    obs.subscribe(
+                        observedAsset.state.person.name, observedAsset.state.score,
                         (name, score) -> {
-                            newName = name.firstName + " " + name.lastName + ' (${asset.state.score})';
+                            newName = name.firstName + " " + name.lastName + ' ($score)';
                             multiCalls++;
                         }
                     );
 
-                    asset.changeFirstName("Avery");
+                    observedAsset.changeFirstName("Avery");
                     newName.should.be("Avery Enberg (0)");
                     multiCalls.should.be(1);
 
-                    asset.update(asset.state, nextState, "FullUpdate");
+                    observedAsset.update(observedAsset.state, nextState, "FullUpdate");
 
                     multiCalls.should.be(2);
-                    asset.state.score.should.be(1);
+                    observedAsset.state.score.should.be(1);
                     newName.should.be("Montagu Norman (1)");
                 });
 
                 it("should not compile if listener has incorrect number of arguments", {
-                    CompilationShould.failFor(asset.subscribe(
-                        asset.state.person.name, asset.state.score, 
+                    CompilationShould.failFor(obs.subscribe(
+                        observedAsset.state.person.name, observedAsset.state.score, 
                         (name) -> null
                     ));
                 });
 
                 it("should be able to subscribe to the whole state tree", {
-                    asset.subscribe(asset.state, (state) -> state.score.should.be(0), true);
+                    obs.subscribe(
+                        observedAsset.state, 
+                        (state) -> state.score.should.be(0), 
+                        observedAsset.state
+                    );
                 });
 
                 it("should subscribe to the whole state if passing a function with two arguments", {
-                    asset.subscribe((prev, current) -> {
+                    obs.subscribe((prev, current) -> {
                         prev.should.not.be(current);
                         prev.score.should.be(0);
                         current.score.should.be(1);
                     });
 
-                    asset.addScore(1);
+                    observedAsset.addScore(1);
 
-                    var calledImmediately = false;
-                    asset.subscribe((prev, current) -> {
-                        calledImmediately = true;
-                    }, true);
+                    var calledImmediately = -1;
+                    obs.subscribe((prev, current) -> {
+                        calledImmediately = current.score;
+                    }, observedAsset.state);
 
-                    calledImmediately.should.be(true);
+                    calledImmediately.should.be(1);
                 });
 
                 it("should throw an exception when subscribing to a non-existing state field", {
                     function subscribeNonexistingPath() {
-                        asset.subscribeObserver(Partial(["notExisting"], name -> null));
-                        asset.changeFirstName("Anything");
+                        obs.subscribeObserver(Partial(["notExisting"], name -> null));
+                        observedAsset.changeFirstName("Anything");
                     }
 
                     subscribeNonexistingPath.should.throwType(String);
-                    CompilationShould.failFor(asset.subscribe(asset.state.notExisting, name -> null));
+                    CompilationShould.failFor(obs.subscribe(observedAsset.state.notExisting, name -> null));
                 });
 
                 it("should be able to immediately trigger the listener", {
                     var nameCalls = 0;
 
-                    var unsub = asset.subscribe(asset.state.person.name, name -> {
+                    var unsub = obs.subscribe(observedAsset.state.person.name, name -> {
                         nameCalls++;
                     });
 
                     nameCalls.should.be(0);
 
-                    asset.subscribe(asset.state.person.name, name -> {
+                    obs.subscribe(observedAsset.state.person.name, name -> {
                         nameCalls++;
-                    }, true);
+                    }, observedAsset.state);
 
                     nameCalls.should.be(1);
                 });
