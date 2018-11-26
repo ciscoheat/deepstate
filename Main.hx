@@ -49,6 +49,10 @@ class Main {
             (player, score) -> trace('Player or score updated.')
         );
 
+        observable.subscribe((prev, current) -> {
+            if(prev.score < current.score) trace("Score increased!");
+        });
+
         //////////////////////////////////////////////////////////////////
 
         // Now create actions using the update method. It will return a

@@ -193,8 +193,10 @@ Create an `ds.Observable<S, T>` object to subscribe to changes:
 
 ```haxe
 var observable = new ds.Observable<CIA, State>();
+var asset = new CIA(someInitialState, [observable.observe]);
+
 var subscriber = observable.subscribe(    
-    asset.state.player, // Note that the asset needs to be in scope.
+    asset.state.player, // Note that the asset needs to be in scope when subscribing
     p -> trace('Player changed name to ${p.firstName} ${p.lastName}')
 );
 
