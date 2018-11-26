@@ -18,22 +18,14 @@ typedef ActionUpdate = {
 #end
 
 @:autoBuild(ds.internal.DeepStateInfrastructure.build())
-#if deepstate_immutable_asset
-class DeepState<S : Constructible<T -> ?ImmutableArray<Middleware<T> -> Void>, T> {
-#else
-class DeepState<T> {
-#end
+class DeepState<S : Constructible<T -> ?ImmutableArray<Middleware<T>> -> Void>, T> {
     #if !macro
     static final allStateObjects = new Map<String, Map<String, {cls: Class<Dynamic>, fields: Array<String>}>>();
 
-    #if deepstate_immutable_asset
     public final state : T;
-    final cls : Class<Dynamic>;
-    #else
-    public var state(default, null) : T;
-    #end
-
     final middlewares : ImmutableArray<Middleware<T>>;
+
+    final cls : Class<Dynamic>;
     final stateObjects : Map<String, {cls: Class<Dynamic>, fields: Array<String>}>;
 
     function new(initialState : T, middlewares : ImmutableArray<Middleware<T>> = null) {
@@ -41,12 +33,8 @@ class DeepState<T> {
         this.middlewares = middlewares == null ? [] : middlewares;
 
         // Restore metadata, that will be used to create a new state object.
-        var cls = Type.getClass(this);
+        var cls = this.cls = Type.getClass(this);
         var name = Type.getClassName(cls);
-
-        #if deepstate_immutable_asset
-        this.cls = cls;
-        #end
 
         this.stateObjects = if(allStateObjects.exists(name))
             allStateObjects.get(name)
@@ -85,7 +73,7 @@ class DeepState<T> {
         };
         chain.reverse();
 
-        //trace('========='); trace('$path -> $newValue'); trace(chain);
+        //trace('========='); trace('${path.join(".")} -> $newValue'); trace(chain);
 
         // Create a new object based on the current one, replacing a single field,
         // representing a state path.
@@ -124,7 +112,7 @@ class DeepState<T> {
         return cast newValue;
     }
 
-    @:noCompletion public function updateState(action : Action) : #if deepstate_immutable_asset S #else T #end {
+    @:noCompletion public function updateState(action : Action) : S {
         // Last function in middleware chain - create a new state.
         function copyAndUpdateState(action : Action) : T {
             var newState = this.state;
@@ -134,14 +122,11 @@ class DeepState<T> {
             return newState;
         }
 
-        var previousState = this.state;
-        var middleware = this.middlewares.reverse();
-
         // Apply middleware
         var newState = {
             var dispatch : Action -> T = copyAndUpdateState;
 
-            for(m in middleware) {
+            for(m in middlewares.reverse()) {
                 dispatch = m.bind(this.state, dispatch);
             }
 
@@ -149,13 +134,7 @@ class DeepState<T> {
             dispatch(action);
         }
 
-        #if (!deepstate_immutable_asset)
-        // Change state
-        this.state = newState;
-        return newState;
-        #else
         return cast Type.createInstance(this.cls, [newState, this.middlewares]);
-        #end
     }
 
     function getFieldInState(state : T, path : String) {
@@ -168,29 +147,8 @@ class DeepState<T> {
         }
         return output;
     }
+    #else // if macro
 
-    function observeState(l : Observer<T>, previousState : T, newState : T, shouldCall = false) : Void {
-        switch l {
-            case Full(listener):
-                listener(previousState, newState);
-            case Partial(paths, listener):
-                var parameters : Array<Dynamic> = [];
-
-                for(path in paths) {
-                    var prevValue = if(shouldCall) null else getFieldInState(previousState, path);
-                    var currentValue = getFieldInState(newState, path);
-                    shouldCall = shouldCall || prevValue != currentValue;
-                    parameters.push(currentValue);
-                }
-
-                if(shouldCall)
-                    Reflect.callMethod(null, listener, parameters);
-        }        
-    }
-
-    #end
-
-    #if macro
     static function unifies(type : ComplexType, value : Expr) return try {
         // Test if types unify by trying to assign a temp var with the new value
         Context.typeof(macro var _DStest : $type = $value);
@@ -299,8 +257,11 @@ class DeepState<T> {
         }
     }
 
-    static function createAction(#if deepstate_immutable_asset store : ExprOf<DeepState<Dynamic,Dynamic>> #else store : ExprOf<DeepState<Dynamic>> #end, 
-        actionType : Null<ExprOf<String>>, updates : Array<ActionUpdate>) : Expr {
+    static function createAction(
+        store : ExprOf<DeepState<Dynamic,Dynamic>>, 
+        actionType : Null<ExprOf<String>>, 
+        updates : Array<ActionUpdate>
+    ) : Expr {
 
         var aTypeString : String;
         var aTypePos : Position;
@@ -343,12 +304,8 @@ class DeepState<T> {
     public macro function update(store : ExprOf<DeepState<Dynamic>>, args : Array<Expr>) {
         var actionType : Expr = null;
 
-        function argErr() 
-            Context.error("Last argument must be a String that indicates the Action type, or null to use the current method's name and class.", Context.currentPos());
-
         var updates = switch args[0].expr {
             case EArrayDecl(values): 
-                //if(args.length != 2) argErr();
                 actionType = args[1];
 
                 values.flatMap(e -> {
@@ -362,7 +319,6 @@ class DeepState<T> {
                 }).array();
             
             case _: 
-                //if(args.length != 3) argErr();
                 actionType = args[2];
                 _updateIn(args[0], args[1]);
         }
