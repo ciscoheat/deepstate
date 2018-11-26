@@ -1,4 +1,6 @@
 package ds;
+import DeepState.DeepStateConstructor;
 
-//            function(state, next,           action)
-typedef Middleware<S> = S -> (Action -> S) -> Action -> S;
+typedef Middleware<S : DeepState<S,T> & DeepStateConstructor<S,T>, T> 
+// function(asset, next,           action)
+           = S -> (Action -> S) -> Action -> S;

@@ -2,11 +2,12 @@ package ds;
 
 import haxe.macro.Context;
 import haxe.macro.Expr;
+import DeepState.DeepStateConstructor;
 
 using Reflect;
 using Lambda;
 
-class Observable<T> {
+class Observable<S : DeepState<S,T> & DeepStateConstructor<S,T>, T> {
     final observers : Array<Observer<T>>;
 
     public function new() {
@@ -21,13 +22,13 @@ class Observable<T> {
         return new Subscription(function() observers.remove(observer));
     }
 
-    public function observe(state: T, next : Action -> T, action : Action) : T {
+    public function observe(asset2 : Dynamic, next : Action -> Dynamic, action : Action) : Dynamic {
         var newState = next(action);
-        for(o in observers) observeState(o, state, newState);
+        for(o in observers) observeState(o, asset2.state, newState.state);
         return newState;
     }
 
-    function observeState(l : Observer<T>, previousState : T, newState : T, shouldCall = false) : Void {
+    function observeState(observer : Observer<T>, previousState : T, newState : T, shouldCall = false) : Void {
         function getFieldInState(state : T, path : String) {
             if(path == "") return state;
 
@@ -39,7 +40,7 @@ class Observable<T> {
             return output;
         }
 
-        switch l {
+        switch observer {
             case Full(listener):
                 listener(previousState, newState);
             case Partial(paths, listener):

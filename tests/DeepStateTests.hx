@@ -1,8 +1,10 @@
+import DeepState.DeepStateConstructor;
 import haxe.ds.Option;
 import buddy.CompilationShould;
 import ds.*;
 
 import haxe.macro.Expr;
+import haxe.Constraints;
 
 using buddy.Should;
 
@@ -84,16 +86,16 @@ class Recursive extends DeepState<Recursive, RecursiveState> {
 
 /////////////////////////////////////////////////////////////////////
 
-class MiddlewareLog {
+class MiddlewareLog<S : DeepState<S,T> & DeepStateConstructor<S,T>, T> {
     public function new() {}
 
     public static var logCount = new Array<String>();
 
-    public var logs(default, null) = new Array<{state: TestState, type: String}>();
+    public var logs(default, null) = new Array<{state: T, type: String}>();
 
-    public function log(state: TestState, next : Action -> TestState, action : Action) : TestState {
+    public function log(asset: S, next : Action -> S, action : Action) : S {
         var nextState = next(action);
-        logs.push({state: nextState, type: action.type});
+        logs.push({state: nextState.state, type: action.type});
         logCount.push("MiddlewareLog");
         return nextState;
     }
@@ -105,7 +107,7 @@ class MiddlewareAlert {
     public var alerts(default, null) = 0;
 
     public function alertOn(actionType : String) {
-        return function(state: Dynamic, next : Action -> Dynamic, action : Action) {
+        return function(asset: Dynamic, next : Action -> Dynamic, action : Action) {
             if(action.type == actionType) {
                 alerts++;
                 MiddlewareLog.logCount.push("MiddlewareAlert");
@@ -416,7 +418,7 @@ class DeepStateTests extends buddy.SingleSuite {
         /////////////////////////////////////////////////////////////
 
         describe("Middleware", {
-            var logger : MiddlewareLog;
+            var logger : MiddlewareLog<CIA, TestState>;
             var alert : MiddlewareAlert;
 
             beforeEach({
@@ -467,11 +469,11 @@ class DeepStateTests extends buddy.SingleSuite {
         /////////////////////////////////////////////////////////////
 
         describe("Observables", {
-            var obs : Observable<TestState>;
+            var obs : Observable<CIA, TestState>;
             var observedAsset : CIA;
             
             beforeEach({
-                obs = new Observable<TestState>();
+                obs = new Observable<CIA, TestState>();
                 observedAsset = new CIA(initialState, [obs.observe]);
             });
 

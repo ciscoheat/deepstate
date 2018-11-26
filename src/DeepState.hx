@@ -17,18 +17,20 @@ typedef ActionUpdate = {
 }
 #end
 
+typedef DeepStateConstructor<S : DeepState<S,T> & DeepStateConstructor<S,T>, T> = Constructible<T -> ?ImmutableArray<Middleware<S,T>> -> Void>;
+
 @:autoBuild(ds.internal.DeepStateInfrastructure.build())
-class DeepState<S : Constructible<T -> ?ImmutableArray<Middleware<T>> -> Void>, T> {
+class DeepState<S : DeepStateConstructor<S,T> & DeepState<S,T>, T> {
     #if !macro
     static final allStateObjects = new Map<String, Map<String, {cls: Class<Dynamic>, fields: Array<String>}>>();
 
     public final state : T;
-    final middlewares : ImmutableArray<Middleware<T>>;
+    final middlewares : ImmutableArray<Middleware<S,T>>;
 
     final cls : Class<Dynamic>;
     final stateObjects : Map<String, {cls: Class<Dynamic>, fields: Array<String>}>;
 
-    function new(initialState : T, middlewares : ImmutableArray<Middleware<T>> = null) {
+    function new(initialState : T, middlewares : ImmutableArray<Middleware<S,T>> = null) {
         this.state = initialState;
         this.middlewares = middlewares == null ? [] : middlewares;
 
@@ -114,27 +116,22 @@ class DeepState<S : Constructible<T -> ?ImmutableArray<Middleware<T>> -> Void>, 
 
     @:noCompletion public function updateState(action : Action) : S {
         // Last function in middleware chain - create a new state.
-        function copyAndUpdateState(action : Action) : T {
+        function copyAndUpdateState(action : Action) : S {
             var newState = this.state;
             for(a in action.updates) {
                 newState = createAndReplace(newState, a.path.split("."), a.value);
             }
-            return newState;
+            return Type.createInstance(this.cls, [newState, this.middlewares]);
         }
 
         // Apply middleware
-        var newState = {
-            var dispatch : Action -> T = copyAndUpdateState;
+        var dispatch : Action -> S = copyAndUpdateState;
 
             for(m in middlewares.reverse()) {
-                dispatch = m.bind(this.state, dispatch);
-            }
-
-            // Set final state for this update
-            dispatch(action);
+            dispatch = m.bind(cast this, dispatch);
         }
 
-        return cast Type.createInstance(this.cls, [newState, this.middlewares]);
+        return dispatch(action);
     }
 
     function getFieldInState(state : T, path : String) {
