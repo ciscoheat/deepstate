@@ -108,13 +108,13 @@ class Main {
 }
 ```
 
-`update` is the whole API for updating the state. Everything is type-checked at compile time, including that all state fields are final.
+Run the test with: `haxe -x Main -lib deepstate`
 
-Every call to `update` is considered an action. The action type is automatically derived from the name of the calling class and method. You can supply your own type (a `String`) as a final parameter to the update methods if you want.
+`update` is the whole API for updating the state. It is type-checked at compile time.
 
-Run the test:
+### Action types
 
-`haxe -x Main -lib deepstate`
+Every call to `update` is considered an action. The action type, a `String`, is automatically derived from the name of the calling class and method. You can supply your own name as a final parameter to the update methods if you want. 
 
 ## Middleware
 

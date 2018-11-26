@@ -296,7 +296,7 @@ class DeepStateTests extends buddy.SingleSuite {
                 });
 
                 it("should update fields when given a partial object", {
-                    var newState = asset.update(asset.state.person.name, {firstName: "Marcus"});
+                    var newState = asset.update(asset.state.person.name, {firstName: "Marcus"}, "UpdateFirstName");
 
                     testIdentity(newState);
                     newState.person.name.firstName.should.be("Marcus");
@@ -314,7 +314,7 @@ class DeepStateTests extends buddy.SingleSuite {
                 it("should update the whole field when given a complete object", {
                     var newState = asset.update(asset.state.person.name, {
                         firstName: "Marcus", lastName: "Wallenberg"
-                    });
+                    }, 'UpdateFullname');
 
                     testIdentity(newState);
                     newState.person.name.firstName.should.be("Marcus");
@@ -335,7 +335,7 @@ class DeepStateTests extends buddy.SingleSuite {
                 });
 
                 it("should update the whole state if specified", {
-                    var newState = asset.update(asset.state, nextState);
+                    var newState = asset.update(asset.state, nextState, "FullUpdate");
 
                     newState.should.not.be(null);
                     newState.should.be(asset.state);
@@ -351,7 +351,7 @@ class DeepStateTests extends buddy.SingleSuite {
                         asset.state.score => score -> score + 3,
                         asset.state.person.name.lastName => "Dulles",
                         asset.state.person.name => {firstName: "John Foster"}
-                    ]);
+                    ], "UpdateSeveral");
 
                     testIdentity(newState);
                     newState.score.should.be(3);
@@ -392,6 +392,7 @@ class DeepStateTests extends buddy.SingleSuite {
                     });
                     asset2.state.should.be(currentState);
 
+                    // This update should not collide with asset.update.
                     asset2.update(asset2.state, FBIstate);
                     asset2.state.should.be(currentState);
                 });
@@ -440,7 +441,7 @@ class DeepStateTests extends buddy.SingleSuite {
                 asset.state.score.should.be(10);
             });
 
-            it("should be possible to specify action type by suppling a string as last argument.", {
+            it("should be possible to specify action type by suppling a string as last argument, or null to use the calling method.", {
                 asset.update(asset.state.score, 20, "Custom Score");
 
                 logger.logs.length.should.be(1);
@@ -449,12 +450,15 @@ class DeepStateTests extends buddy.SingleSuite {
                 asset.state.score.should.be(20);
 
                 asset.update([asset.state.score => s -> s + 20], "Another custom");
+                asset.update([asset.state.score => s -> s + 20], null);
 
-                logger.logs.length.should.be(2);
+                logger.logs.length.should.be(3);
+
                 logger.logs[0].type.should.be("Custom Score");
                 logger.logs[1].type.should.be("Another custom");
+                logger.logs[2].type.should.be("DeepStateTests.new");
 
-                asset.state.score.should.be(40);
+                asset.state.score.should.be(60);
             });
         });
 
@@ -484,7 +488,7 @@ class DeepStateTests extends buddy.SingleSuite {
                     nameCalls.should.be(2);
                     lastNameCalls.should.be(0);
 
-                    asset.update(asset.state.person.name.lastName, "Dulles");
+                    asset.update(asset.state.person.name.lastName, "Dulles", "UpdateLastName");
                     asset.state.person.name.lastName.should.be("Dulles");
                     newName.should.be("Avery Dulles");
                     nameCalls.should.be(3);
@@ -518,7 +522,7 @@ class DeepStateTests extends buddy.SingleSuite {
                     newName.should.be("Avery Enberg (0)");
                     multiCalls.should.be(1);
 
-                    asset.update(asset.state, nextState);
+                    asset.update(asset.state, nextState, "FullUpdate");
 
                     multiCalls.should.be(2);
                     asset.state.score.should.be(1);
@@ -676,7 +680,7 @@ class DeepStateTests extends buddy.SingleSuite {
 
                 it("should update as usual", {
                     var list = asset.state.json;
-                    asset.update(asset.state, nextState);
+                    asset.update(asset.state, nextState, "FullUpdate");
                     asset.state.json.should.not.be(list);
                     (asset.state.json.get('place') : String).should.be("Ljungaverk");
                 });

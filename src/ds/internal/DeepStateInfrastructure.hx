@@ -124,15 +124,28 @@ class DeepStateInfrastructure {
         var cls = Context.getLocalClass().get();
 
         #if (!deepstate_immutable_asset)
-        if(cls.superClass == null || cls.superClass.params.length != 1)
+        if(cls.superClass == null)
             Context.error("Class must extend DeepState<T>, where T is the state type.", cls.pos);
 
         var type = cls.superClass.params[0];
         #else
-        if(cls.superClass == null || cls.superClass.params.length != 2)
+        if(cls.superClass == null)
             Context.error("Class must extend DeepState<S, T>, where S is the class itself, and T is the state type.", cls.pos);
 
         var type = cls.superClass.params[1];
+
+        // Constructor must be the same as the superclass.
+        var constructor = Context.getBuildFields().find(f -> f.name == "new");
+        if(constructor != null) {
+            if(!constructor.access.has(APublic))
+                Context.error("Constructor must be public.", constructor.pos);
+
+            switch constructor.kind {
+                case FFun(f) if(f.args.length == 2):
+                case _:
+                    Context.error("Constructor must have two arguments that must be passed to its superclass.", constructor.pos);
+            }
+        }
         #end
         testTypeFields([], type);
 

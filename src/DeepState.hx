@@ -1,15 +1,21 @@
 import haxe.DynamicAccess;
 import haxe.macro.Context;
 import haxe.macro.Expr;
+import haxe.Constraints;
 import ds.*;
+
+using Reflect;
+using Lambda;
 
 #if macro
 using haxe.macro.Tools;
 using haxe.macro.TypeTools;
-#end
 
-using Reflect;
-using Lambda;
+typedef ActionUpdate = {
+    path: String,
+    value: Any
+}
+#end
 
 @:autoBuild(ds.internal.DeepStateInfrastructure.build())
 #if deepstate_immutable_asset
@@ -226,14 +232,12 @@ class DeepState<T> {
         }
     }
 
-    static function _updateField(path : Expr, pathType : haxe.macro.Type, newValue : Expr) {
+    static function _updateField(path : Expr, pathType : haxe.macro.Type, newValue : Expr) : ActionUpdate {
         return if(!unifies(Context.toComplexType(pathType), newValue)) {
             Context.error("Value should be of type " + pathType.toString(), newValue.pos);
         } else {
-            [macro {
-                path: $v{stripPathPrefix(path)},
-                value: $newValue
-            }];
+            path: stripPathPrefix(path),
+            value: newValue
         }
     }
 
@@ -261,17 +265,7 @@ class DeepState<T> {
                 Context.error("Cannot determine field type, try providing a type hint.", f.expr.pos);
             }
 
-            if(!unifies(Context.toComplexType(fieldType), f.expr)) {
-                Context.error("Value should be of type " + fieldType.toString(), f.expr.pos);
-            }
-
-            var strippedPath = stripPathPrefix(fieldPath);
-
-            // Create the update
-            macro {
-                path: $v{strippedPath},
-                value: ${f.expr}
-            }
+            _updateField(fieldPath, fieldType, f.expr);
         }];
     }
 
@@ -288,27 +282,84 @@ class DeepState<T> {
 
             case EFunction(name, f):
                 // Update with a function/lambda expression 
-                _updateFunc(path, pathType, newValue);
+                [_updateFunc(path, pathType, newValue)];
             
             case _: 
                 // Update any other value
-                _updateField(path, pathType, newValue);
+                [_updateField(path, pathType, newValue)];
+        }
+    }
+
+    static var typeNameCalls = new Map<String, {hash: String, pos: haxe.macro.Position}>();
+    static function checkDuplicateAction(store : Expr, actionType : String, updates : Array<ActionUpdate>, pos) {
+
+        var clsName = try switch Context.typeof(store) {
+            case TInst(t, _):
+                var cls = t.get();
+                cls.module + "." + cls.pack.join(".") + "." + cls.name + ".";
+            case _:
+                Context.error("Asset is not a class.", store.pos);
+        } catch(e : Dynamic) {
+            Context.error("Asset type not found, please provide a type hint.", store.pos);
+        }
+
+        var hashKey = clsName + actionType;
+        var updateHash = ' => [' + updates.map(u -> u.path).join("] [") + ']';
+
+        if(typeNameCalls.exists(hashKey)) {
+            var typeHash = typeNameCalls.get(hashKey);
+
+            if(typeHash.hash != updateHash) {
+                var msg = 'Duplicate action type "$actionType", change updates or action type name.';
+                Context.warning(msg, typeHash.pos);
+                Context.error(msg, pos);
+            }
+        }
+        else {
+            #if deepstate_list_actions
+            Context.warning('$actionType$updateHash', pos);
+            #end
+            typeNameCalls.set(hashKey, {hash: updateHash, pos: pos});
         }
     }
 
     static function createAction(#if deepstate_immutable_asset store : ExprOf<DeepState<Dynamic,Dynamic>> #else store : ExprOf<DeepState<Dynamic>> #end, 
-        actionType : Null<ExprOf<String>>, updates : Array<Expr>) : Expr {
-        var aType = actionType == null 
-            ? macro $v{Context.getLocalClass().get().name + "." + Context.getLocalMethod()}
-            : actionType;
+        actionType : Null<ExprOf<String>>, updates : Array<ActionUpdate>) : Expr {
+
+        var aTypeString : String;
+        var aTypePos : Position;
+
+        function defaultType(pos) {
+            aTypeString = Context.getLocalClass().get().name + "." + Context.getLocalMethod();
+            aTypePos = pos;
+            return macro $v{aTypeString};
+        }
+
+        var aType = if(actionType == null) defaultType(Context.currentPos()) else switch actionType.expr {
+            case EConst(CIdent("null")):
+                defaultType(actionType.pos);
+            case EConst(CString(s)):
+                aTypeString = s;
+                aTypePos = actionType.pos;
+                actionType;
+            case _:
+                actionType;
+        }
+
+        checkDuplicateAction(store, aTypeString, updates, aTypePos);
 
 		// Display mode and vshaxe diagnostics have some problems with this.
 		//if(Context.defined("display") || Context.defined("display-details")) 
 			//return macro null;
 
+        var macroUpdates = updates.map(u -> macro {
+            path: $v{u.path},
+            value: ${u.value}
+        });
+
         return macro $store.updateState({
             type: $aType,
-            updates: $a{updates}
+            updates: $a{macroUpdates}
         });
     }    
     #end
@@ -370,9 +421,14 @@ class DeepState<T> {
     public macro function update(store : ExprOf<DeepState<Dynamic>>, args : Array<Expr>) {
         var actionType : Expr = null;
 
+        function argErr() 
+            Context.error("Last argument must be a String that indicates the Action type, or null to use the current method's name and class.", Context.currentPos());
+
         var updates = switch args[0].expr {
             case EArrayDecl(values): 
-                if(args.length == 2) actionType = args[1];
+                //if(args.length != 2) argErr();
+                actionType = args[1];
+
                 values.flatMap(e -> {
                     switch e.expr {
                         case EBinop(op, e1, e2) if(op == OpArrow):
@@ -384,7 +440,8 @@ class DeepState<T> {
                 }).array();
             
             case _: 
-                if(args.length == 3) actionType = args[2];
+                //if(args.length != 3) argErr();
+                actionType = args[2];
                 _updateIn(args[0], args[1]);
         }
 
