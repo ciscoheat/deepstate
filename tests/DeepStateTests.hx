@@ -42,9 +42,6 @@ class DataClassState implements DataClass {
 ///////////////////////////////////////////////////////////
 
 class CIA extends DeepState<CIA, TestState> {
-    public function new(initialState, middlewares = null) 
-        super(initialState, middlewares);
-
     public function addScore(add : Int) {
         return update(state.score, state.score + add);
     }
@@ -66,10 +63,10 @@ class FBI extends DeepState<FBI, DataClassState> {
     }
 
     public function setScore(score : Int)
-        return update(state.score, score);
+        return update(this.state.score, score);
 
     public function updateFullState() {
-        return update(state, new DataClassState({
+        return update(this.state, new DataClassState({
             score: 0, 
             person: new Person({
                 firstName: "Hjalmar",

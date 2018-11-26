@@ -61,12 +61,9 @@ typedef State = {
     final json : ds.ImmutableJson;
 }
 
-// Create a Contained Immutable Asset class by extending DeepState<T>,
-// where T is the type of your program state.
-class CIA extends DeepState<State> {
-    public function new(initialState, middlewares = null) 
-        super(initialState, middlewares);
-}
+// Create a Contained Immutable Asset class by extending DeepState<S, T>,
+// where S is the asset type, and T is the type of your program state.
+class CIA extends DeepState<CIA, State> {}
 
 // And a Main class to use it.
 class Main {
@@ -82,28 +79,32 @@ class Main {
             json: { name: "Meitner", place: "Ljungaverk", year: 1945 }
         });
 
-        // Now create actions using the update method:
+        // Now you can create actions using the update method. It will return a
+        // new asset of the same type.
 
-        // It can be passed a normal value for direct updates
-        asset.update(asset.state.score, 0);
+        // It can be passed a normal value for direct updates.
+        // The default action type is "Class.method" for the caller, so this action
+        // will have the type "Main.main":
+        var next = asset.update(asset.state.score, 0);
 
-        // Or a lambda function
-        asset.update(asset.state.score, score -> score + 1);
+        // A lambda function can also be used for incremental updates.
+        next = next.update(next.state.score, score -> score + 1);
 
-        // Or a partial object
-        asset.update(asset.state.player, {firstName: "Avery"});
+        // Partial objects are also supported.
+        // This update is different from the two above, so the default name "Main.main"
+        // will clash. Add a unique action type as the last argument to fix it.
+        next = next.update(next.state.player, {firstName: "Avery"}, "UpdatePlayer");
 
-        // It could also be passed a map declaration, 
-        // for multiple updates in the same action
-        asset.update([
-            asset.state.score => s -> s + 10,
-            asset.state.player.firstName => "John Foster",
-            asset.state.timestamps => asset.state.timestamps.push(Date.now())
-        ]);
+        // For multiple (atomic) updates in the same action, pass in a map declaration.
+        next = next.update([
+            next.state.score => s -> s + 10,
+            next.state.player.firstName => "John Foster",
+            next.state.timestamps => next.state.timestamps.push(Date.now())
+        ], "BigUpdate");
         
         // Access state as you expect:
-        trace(asset.state);
-        trace(asset.state.score); // 11
+        trace(next.state);
+        trace(next.state.score); // 11
     }
 }
 ```
@@ -112,36 +113,34 @@ Run the test with: `haxe -x Main -lib deepstate`
 
 `update` is the whole API for updating the state. It is type-checked at compile time.
 
-### Action types
-
-Every call to `update` is considered an action. The action type, a `String`, is automatically derived from the name of the calling class and method. You can supply your own name as a final parameter to the update methods if you want. 
-
 ## Middleware
 
-Lets make this time machine then! Middleware is a function that takes three arguments:
+Lets make the famous Redux time machine then! Middleware is a function that takes three arguments:
 
-1. **state:** The state `T` before any middleware was/is applied
+1. **state:** The asset `S` before any middleware was/is applied
 1. **next:** A `next` function that will pass an `Action` to the next middleware
 1. **action:** The current `Action`, that can be passed to `next` if no changes should be applied.
 
-Finally, the middleware should return a new state `T`, which is the same as returning `next(action)`.
+Finally, the middleware should return a new asset `S`, which is the same as returning `next(action)`.
 
 Here's a state logger that will save all state changes, which is just a quick solution. An alternative is to save the actions instead and replaying them, but that's left as an exercise!
 
 ```haxe
 import ds.Action;
+import DeepState.DeepStateConstructor;
 
-class MiddlewareLog<T> {
+// Apologizes for the long type constraint
+class MiddlewareLog<S : DeepState<S,T> & DeepStateConstructor<S,T>, T> {
     public function new() {}
 
     public final logs = new Array<{state: T, type: String, timestamp: Date}>();
 
-    public function log(state: T, next : Action -> T, action : Action) : T {
+    public function log(state: S, next : Action -> S, action : Action) : S {
         // Get the next state
         var newState = next(action);
 
         // Log it and return it unchanged
-        logs.push({state: newState, type: action.type, timestamp: Date.now()});
+        logs.push({state: newState.state, type: action.type, timestamp: Date.now()});
         return newState;
     }
 }
@@ -150,21 +149,20 @@ class MiddlewareLog<T> {
 Which then can be used in the asset as such:
 
 ```haxe
-var logger = new MiddlewareLog<CIA>();
+var logger = new MiddlewareLog<CIA, State>();
 var asset = new CIA(initialState, [logger.log]);
 ```
 
 To restore a previous state, at the moment you need to expose some revert method in the asset:
 
 ```haxe
-class CIA extends DeepState<GameState> {
-    // ...
+class CIA extends DeepState<CIA, GameState> {
     public function revert(previous : GameState)
-        update(state, previous);
+        return update(this.state, previous);
 }
 
 // Now you can turn back time:
-asset.revert(logger.logs[0].state);
+var next = asset.revert(logger.logs[0].state);
 ```
 
 Hopefully some standardized solution for this can be figured out. Open an issue if you have any ideas!
@@ -177,52 +175,53 @@ No assumptions are made about the actions, which means that any future behavior 
 public function changeName(firstName : String, lastName : String) {
     return new Promise((resolve, reject) -> {
         api.checkValidName(firstName, lastName).then(() -> {
-            asset.update(asset.state.player, { 
+            var next = asset.update(asset.state.player, { 
                 firstName: firstName, 
                 lastName: lastName
             });
-            resolve(asset.state.player);
+            resolve(next);
         }, reject);
     });
 }
 ```
 
-## Observables
+## Observable
 
 The above functionality will get you far, you could for example create a middleware for your favorite web framework, redrawing or updating its components when the state updates. By popular request however, an observable feature has been added, making it easy to subscribe to state updates.
 
-Use `asset.subscribe` to subscribe to changes:
+Create an `ds.Observable<S, T>` object to subscribe to changes:
 
 ```haxe
-var unsubscriber = asset.subscribe(
-    asset.state.player, 
+var observable = new ds.Observable<CIA, State>();
+var subscriber = observable.subscribe(    
+    asset.state.player, // Note that the asset needs to be in scope.
     p -> trace('Player changed name to ${p.firstName} ${p.lastName}')
 );
 
 // You can observe multiple changes, and receive them in a single callback
-asset.subscribe(
+observable.subscribe(
     asset.state.player, asset.state.score, 
     (player, score) -> trace('Player or score updated.')
 );
 
 // Later, time to unsubscribe
-if(!unsubscriber.closed)
-    unsubscriber.unsubscribe();
+if(!subscriber.closed)
+    subscriber.unsubscribe();
 ```
 
-If you want to send the state immediately upon subscription, which can be useful to populate objects, you can pass `true` as the last argument to `subscribe`.
+If you want to observe the state immediately upon subscription, which can be useful to populate objects, you can pass a state `T` as a final argument to `subscribe`.
 
 The observer will only be called upon changes *on the selected parts of the state tree*. So in the first example, it won't be called if the score changed. If you want to observe all updates, call `subscribe` with a function that takes two parameters, the previous and updated state:
 
 ```haxe
-var unsubscriber = asset.subscribe((prev, current) -> {
+var subscriber = observable.subscribe((prev, current) -> {
     if(prev.score < current.score) trace("Score increased!");
 });
 ```
 
 ## DataClass support
 
-The library [DataClass](https://github.com/ciscoheat/dataclass) is a nice supplement to deepstate, since it has got validation, null checks, JSON export, etc, for your data. It works out-of-the-box, simply create a DataClass with final fields, and use it in `DeepState<T>`.
+The library [DataClass](https://github.com/ciscoheat/dataclass) is a nice supplement to deepstate, since it has got validation, null checks, JSON export, etc, for your data. It works out-of-the-box, simply create a DataClass with only final fields, and use it as `T` in `DeepState<S, T>`.
 
 ## Roadmap
 
@@ -231,8 +230,8 @@ The project has just started, so assume API changes. The aim is to support at le
 - [x] Middleware
 - [x] Observable state
 - [x] Support for DataClass
+- [x] Making the asset itself immutable, instead of treating it as a state container
 - [ ] Support for objects with a Map-like interface
-- [ ] An option for making the asset itself immutable, instead of treating it as a state container
 - [ ] Your choice! Create an issue to join in.
 
 [![Build Status](https://travis-ci.org/ciscoheat/deepstate.svg?branch=master)](https://travis-ci.org/ciscoheat/deepstate)

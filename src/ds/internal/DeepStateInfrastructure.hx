@@ -129,7 +129,23 @@ class DeepStateInfrastructure {
         // Set metadata that DeepState will access in its constructor.
         cls.meta.add("stateObjects", [macro $v{objectFields}], cls.pos);
 
-        return null;
+        // Add a constructor if not defined
+        var fields = Context.getBuildFields();
+        if(fields.exists(f -> f.name == "new")) return null;
+
+        return fields.concat([{
+            access: [APublic],
+            kind: FFun({
+                args: [
+                    {name: 'initialState', type: null},
+                    {name: 'middlewares', type: null, opt: true}
+                ],
+                expr: macro super(initialState, middlewares),
+                ret: null
+            }),
+            name: "new",
+            pos: Context.currentPos()
+        }]);
     }
 }
 #end
