@@ -26,7 +26,7 @@ Introducing **DeepState**, a state library that wants to go back to basics inste
 
 Since the beginning we've had this thing called **program state**, and just as in real life the state can be bloated and packed with confusing rules that seems more important than life itself. But full anarchy isn't advantageous either, letting anyone do everything they want, for example writing everywhere in memory without restrictions. A middle ground is best, a few clever rules that makes life easier and at the same time prevents fools from ruining things, or others from making mistakes with large repercussions.
 
-Something that seems very useful in combination with program state is **immutability**. Apart from preventing accidental overwrites, we start viewing data as facts, and the state as a snapshot in time, similar to version control software like Git, another idea that has proved to be very useful (especially if you've used bisect).
+Something that seems very useful in combination with program state is **immutability**. It prevents accidental overwrites, and we also start viewing data as facts, and the state as a snapshot in time, similar to version control software like Git, another idea that has proved to be very useful (especially if you've used bisect).
 
 Making the state become a version controlled repository and commit data to it is appealing, but the whole idea of committing is perhaps not fully compatible with a process like running software. In Git you stage changes, review them and finally commit them with a descriptive message. There are also no rules to what can be deleted and added in the repository. When programming we express known change sets, and they will be applied by a machine at runtime. Therefore the concept of **actions**, taken from Flux and Redux, makes sense as a simplified commit. They are similar to events but applies only to state updates.
 
@@ -68,7 +68,8 @@ class CIA extends DeepState<CIA, State> {}
 // And a Main class to use it.
 class Main {
     static function main() {
-        // Instantiate your Contained Immutable Asset with an initial state
+        // Instantiate your Contained Immutable Asset with an initial 
+        // state.
         var asset = new CIA({
             score: 0,
             player: {
@@ -79,23 +80,27 @@ class Main {
             json: { name: "Meitner", place: "Ljungaverk", year: 1945 }
         });
 
-        // Now you can create actions using the update method. It will return a
-        // new asset of the same type.
+        // Now you can create actions using the update method. It will 
+        // return a new asset of the same type.
 
         // It can be passed a normal value for direct updates.
-        // The default action type is "Class.method" for the caller, so this action
-        // will have the type "Main.main":
+        // The default action type is "Class.method" for the caller, 
+        // so this action will have the type "Main.main":
         var next = asset.update(asset.state.score, 0);
 
         // A lambda function can also be used for incremental updates.
         next = next.update(next.state.score, score -> score + 1);
 
         // Partial objects are also supported.
-        // This update is different from the two above, so the default name "Main.main"
-        // will clash. Add a unique action type as the last argument to fix it.
-        next = next.update(next.state.player, {firstName: "Avery"}, "UpdatePlayer");
+        // This update is different from the two above, so the default 
+        // name "Main.main" will clash. Add a unique action type as the 
+        // last argument to fix it.
+        next = next.update(
+            next.state.player, {firstName: "Avery"}, "UpdatePlayer"
+        );
 
-        // For multiple (atomic) updates in the same action, pass in a map declaration.
+        // For multiple (atomic) updates in the same action, pass in a
+        // map declaration.
         next = next.update([
             next.state.score => s -> s + 10,
             next.state.player.firstName => "John Foster",
@@ -117,25 +122,26 @@ Run the test with: `haxe -x Main -lib deepstate`
 
 Lets make the famous Redux time machine then! Middleware is a function that takes three arguments:
 
-1. **state:** The asset `S` before any middleware was/is applied
+1. **asset:** The asset `S`, before any middleware was/is applied
 1. **next:** A `next` function that will pass an `Action` to the next middleware
 1. **action:** The current `Action`, that can be passed to `next` if no changes should be applied.
 
 Finally, the middleware should return a new asset `S`, which is the same as returning `next(action)`.
 
-Here's a state logger that will save all state changes, which is just a quick solution. An alternative is to save the actions instead and replaying them, but that's left as an exercise!
+Here's a logger that will save all state changes, which is just a quick solution. An alternative is to save the actions instead and replaying them, but that's left as an exercise!
 
 ```haxe
 import ds.Action;
 import DeepState.DeepStateConstructor;
 
-// Apologizes for the long type constraint
+// Apologizes for the long type constraint, use Dynamic instead of S
+// if you don't need specific type access, then you don't need it.
 class MiddlewareLog<S : DeepState<S,T> & DeepStateConstructor<S,T>, T> {
     public function new() {}
 
     public final logs = new Array<{state: T, type: String, timestamp: Date}>();
 
-    public function log(state: S, next : Action -> S, action : Action) : S {
+    public function log(asset: S, next : Action -> S, action : Action) : S {
         // Get the next state
         var newState = next(action);
 
@@ -187,7 +193,7 @@ public function changeName(firstName : String, lastName : String) {
 
 ## Observable
 
-The above functionality will get you far, you could for example create a middleware for your favorite web framework, redrawing or updating its components when the state updates. By popular request however, an observable feature has been added, making it easy to subscribe to state updates.
+The above functionality will get you far, you could for example create a middleware for your favorite web framework, redrawing or updating its components when the state updates. By popular request, an observable middleware has been added, making it easy to subscribe to state updates.
 
 Create an `ds.Observable<S, T>` object to subscribe to changes:
 
@@ -196,7 +202,7 @@ var observable = new ds.Observable<CIA, State>();
 var asset = new CIA(someInitialState, [observable.observe]);
 
 var subscriber = observable.subscribe(    
-    asset.state.player, // Note that the asset needs to be in scope when subscribing
+    asset.state.player,
     p -> trace('Player changed name to ${p.firstName} ${p.lastName}')
 );
 
@@ -233,6 +239,7 @@ The project has just started, so assume API changes. The aim is to support at le
 - [x] Observable state
 - [x] Support for DataClass
 - [x] Making the asset itself immutable, instead of treating it as a state container
+- [ ] Default state initialization
 - [ ] Support for objects with a Map-like interface
 - [ ] Your choice! Create an issue to join in.
 
