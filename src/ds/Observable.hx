@@ -96,9 +96,11 @@ class Observable<S : DeepState<S,T> & DeepStateConstructor<S,T>, T> {
                         f.args[i].type = Context.toComplexType(pathTypes[i]);
 
                     var stringPaths = paths.map(p -> {
-                        var path = DeepState.stripPathPrefix(p);
+                        var update = DeepState.createActionUpdate(p, null);
+                        if(update.params.length > 0)
+                            Context.error("Cannot subscribe to array access", p.pos);
                         {
-                            expr: EConst(CString(path)),
+                            expr: EConst(CString(update.path)),
                             pos: p.pos
                         }
                     });

@@ -13,6 +13,7 @@ using haxe.macro.TypeTools;
 
 typedef ActionUpdate = {
     path: String,
+    params: ImmutableArray<Int>,
     value: Any
 }
 #else
@@ -209,24 +210,28 @@ class DeepState<S : DeepStateConstructor<S,T> & DeepState<S,T>, T> {
         true;
     } catch(e : Dynamic) false;
 
-    public static function stripPathPrefix(path : Expr) : String {
-        // Strip "asset.state" from path
+    public static function createActionUpdate(path : Expr, value : Any) : ActionUpdate {
         var pathStr = path.toString();
-        return if(pathStr == "state" || pathStr.lastIndexOf(".state") == pathStr.length-6) 
-            ""
+        return if(pathStr == "state" || pathStr.lastIndexOf(".state") == pathStr.length-6) {
+            path: "",
+            params: [],
+            value: value
+        }
         else {
             var index = pathStr.indexOf("state.");
-            index == -1 ? pathStr : pathStr.substr(index + 6);
+            {
+                path: index == -1 ? pathStr : pathStr.substr(index + 6),
+                params: [],
+                value: value
+            }
         }
     }
 
     static function _updateField(path : Expr, pathType : haxe.macro.Type, newValue : Expr) : ActionUpdate {
         return if(!unifies(Context.toComplexType(pathType), newValue)) {
             Context.error("Value should be of type " + pathType.toString(), newValue.pos);
-        } else {
-            path: stripPathPrefix(path),
-            value: newValue
-        }
+        } else
+            createActionUpdate(path, newValue);
     }
 
     static function _updateFunc(path : Expr, pathType : haxe.macro.Type, newValue : Expr) {
