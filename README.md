@@ -134,8 +134,8 @@ Here's a logger that will save all state changes, which is just a quick solution
 import ds.Action;
 import DeepState.DeepStateConstructor;
 
-// Apologizes for the long type constraint, use Dynamic instead of S
-// if you don't need specific type access, then you don't need it.
+// Apologies for the long type constraint, use Dynamic instead of S
+// if you don't need specific type access, then it's not needed.
 class MiddlewareLog<S : DeepState<S,T> & DeepStateConstructor<S,T>, T> {
     public function new() {}
 

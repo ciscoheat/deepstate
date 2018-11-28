@@ -15,6 +15,19 @@ typedef ActionUpdate = {
     path: String,
     value: Any
 }
+#else
+typedef ClassFields = {cls: Class<Dynamic>, fields: Array<String>};
+
+enum StateUpdate {
+    Anonymous(currentObj : DynamicAccess<Dynamic>, field : StateField);
+    Instance(metadata : ClassFields, currentObj : Any, field : StateField);
+    //ArrayIndex(array : Array<Dynamic>, index : Int, field : StateField);
+}
+
+enum StateField {
+    Object(field : String);
+    //ArrayIndex(index : Int, field : String);
+}
 #end
 
 typedef DeepStateConstructor<S : DeepState<S,T> & DeepStateConstructor<S,T>, T> = Constructible<T -> ?ImmutableArray<Middleware<S,T>> -> Void>;
@@ -22,13 +35,13 @@ typedef DeepStateConstructor<S : DeepState<S,T> & DeepStateConstructor<S,T>, T> 
 @:autoBuild(ds.internal.DeepStateInfrastructure.build())
 class DeepState<S : DeepStateConstructor<S,T> & DeepState<S,T>, T> {
     #if !macro
-    static final allStateObjects = new Map<String, Map<String, {cls: Class<Dynamic>, fields: Array<String>}>>();
+    static final allStateObjects = new Map<String, Map<String, ClassFields>>();
 
     public final state : T;
     final middlewares : ImmutableArray<Middleware<S,T>>;
 
     final cls : Class<Dynamic>;
-    final stateObjects : Map<String, {cls: Class<Dynamic>, fields: Array<String>}>;
+    final stateObjects : Map<String, ClassFields>;
 
     function new(initialState : T, middlewares : ImmutableArray<Middleware<S,T>> = null) {
         this.state = initialState;
@@ -41,7 +54,7 @@ class DeepState<S : DeepStateConstructor<S,T> & DeepState<S,T>, T> {
         this.stateObjects = if(allStateObjects.exists(name))
             allStateObjects.get(name)
         else {
-            var map = new Map<String, {cls: Class<Dynamic>, fields: Array<String>}>();
+            var map = new Map<String, ClassFields>();
             var metadata = haxe.rtti.Meta.getType(cls).field("stateObjects")[0];
             
             for(key in Reflect.fields(metadata)) {
@@ -59,6 +72,18 @@ class DeepState<S : DeepStateConstructor<S,T> & DeepState<S,T>, T> {
 
     /////////////////////////////////////////////////////////////////
 
+    function isArrayField(field : String) : {index: Int, name: String} {
+        return if(field.length == 0 || field.charAt(field.length-1) != "]")
+            {index: -1, name: field};
+        else {
+            var lastPos = field.lastIndexOf("[");
+            {
+                index: Std.parseInt(field.substring(lastPos + 1, field.length-1)),
+                name: field.substr(0, lastPos)
+            }
+        }
+    }
+
     // Make a deep copy of a new state object.
     function createAndReplace(currentState : T, path : ImmutableArray<String>, newValue : Any) : T {
         if(path[0] != "") path = path.unshift("");
@@ -66,50 +91,82 @@ class DeepState<S : DeepStateConstructor<S,T> & DeepState<S,T>, T> {
         var currentObj = currentState;
         var chain = [];
         for(i in 0...path.length-1) {
-            chain.push({
-                currentObj: currentObj,
-                fullPath: i == 0 ? '' : path.slice(1,i+1).join('.'),
-                field: path[i+1]
-            });
-            currentObj = currentObj.getProperty(path[i+1]);
+            var fullPath = i == 0 ? '' : ~/\[\d+\]/g.replace(path.slice(1,i+1).join('.'), '');
+            var currentType = isArrayField(path[i]);
+            var fieldType = isArrayField(path[i+1]);
+
+            var fieldState = if(fieldType.index >= 0) null
+                //StateField.ArrayIndex(fieldType.index, fieldType.name)
+            else
+                StateField.Object(fieldType.name);
+
+            var currentState = if(currentType.index >= 0) null
+                //StateUpdate.ArrayIndex(cast currentObj, currentType.index, fieldState)
+            else if(stateObjects.exists(fullPath)) {
+                StateUpdate.Instance(stateObjects.get(fullPath), currentObj, fieldState);
+            } else
+                StateUpdate.Anonymous(cast currentObj, fieldState);
+
+            chain.push(currentState);
+            currentObj = currentObj.getProperty(fieldType.name);
         };
         chain.reverse();
 
-        //trace('========='); trace('${path.join(".")} -> $newValue'); trace(chain);
+        //trace('========='); trace('${path.join(".")} -> $newValue'); trace(chain.map(c -> { fullPath: c.fullPath, field: c.field }));
 
         // Create a new object based on the current one, replacing a single field,
         // representing a state path.
-        function createNew(currentObj : Any, fullPath : String, field : String, newValue : Any) : Any {
-            return if(!stateObjects.exists(fullPath)) {
-                // Anonymous structure
-                var data = Reflect.copy(currentObj);
+        function createNew(update : StateUpdate, newValue : Any) : Any {
 
-                if(!data.hasField(field))
-                    throw 'Field not found in state: $fullPath';
+            function newFieldValue(currentObj : Any, field : StateField) : {field: String, value: Any} {
+                return switch field {
+                    case Object(name): 
+                        {field: name, value: newValue};
+                    /*
+                    case ArrayIndex(index, name):
+                        var array : Array<Dynamic> = Reflect.field(currentObj, name);
+                        var newArray = array.array();
+                        newArray[index] = newValue;
+                        {field: name, value: cast newValue};
+                    */
+                }
+            }
 
-                Reflect.setField(data, field, newValue);
-                data;
-            } else {
-                // Class instantiation
-                var metadata = stateObjects.get(fullPath);
-                var data = new haxe.DynamicAccess<Dynamic>();
+            return switch update {
+                case Anonymous(currentObj, field):
+                    // Anonymous structure
+                    var update = newFieldValue(currentObj, field);
+                    if(!currentObj.exists(update.field)) 
+                        throw 'Field not found in state: ${update.field}';
 
-                if(!metadata.fields.has(field))
-                    throw 'Field not found in state: $fullPath';
+                    var data = Reflect.copy(currentObj);
+                    Reflect.setField(data, update.field, update.value);
+                    data;
 
-                // If problems, use getProperty instead of field.
-                for(f in metadata.fields) 
-                    data.set(f, Reflect.field(currentObj, f));
+                case Instance(metadata, currentObj, field):
+                    var data = new haxe.DynamicAccess<Dynamic>();
 
-                data.set(field, newValue);
+                    var update = newFieldValue(currentObj, field);
+                    if(!metadata.fields.has(update.field))
+                        throw 'Field not found in state: ${update.field}';
 
-                Type.createInstance(metadata.cls, [data]);
+                    // If problems, use getProperty instead of field.
+                    for(f in metadata.fields) 
+                        data.set(f, Reflect.field(currentObj, f));
+
+                    data.set(update.field, update.value);
+
+                    Type.createInstance(metadata.cls, [data]);
+
+                /*
+                case ArrayIndex(array, index, field):
+                    null;
+                */
             }
         }
 
         var newValue : Dynamic = newValue;
-        for(c in chain)
-            newValue = createNew(c.currentObj, c.fullPath, c.field, newValue);
+        for(update in chain) newValue = createNew(update, newValue);
 
         return cast newValue;
     }

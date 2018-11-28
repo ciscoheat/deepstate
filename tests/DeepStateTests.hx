@@ -14,8 +14,11 @@ typedef TestState = {
         final name : {
             final firstName : String;
             final lastName : String;
+        };
+        final tags : ImmutableArray<{
+            final name : String;
+        }>;
         }
-    }
     final timestamps : ImmutableArray<Date>;
         final json : ImmutableJson;
 }
@@ -123,7 +126,8 @@ class DeepStateTests extends buddy.SingleSuite {
         var initialState : TestState = {
             score: 0,
             person: {
-                name: { firstName: "Wall", lastName: "Enberg" }
+                name: { firstName: "Wall", lastName: "Enberg" },
+                tags: [{name: "Boliden"}, {name: "IG"}]
             },
             timestamps: [],
             json: { 
@@ -136,7 +140,8 @@ class DeepStateTests extends buddy.SingleSuite {
         var nextState : TestState = {
             score: 1, 
             person: {
-                name: { firstName: "Montagu", lastName: "Norman" }
+                name: { firstName: "Montagu", lastName: "Norman" },
+                tags: [{name: "Ring"}]
             },
             timestamps: [Date.now()],
             json: { name: "Meitner", place: "Ljungaverk", year: 1945 }
@@ -177,7 +182,6 @@ class DeepStateTests extends buddy.SingleSuite {
                 newState.state.should.not.be(null);
                 newState.state.should.be(nextState);
                 newState.state.timestamps[0].getTime().should.beGreaterThan(0);
-
                 newState.state.score.should.be(1);
                 newState.state.person.name.firstName.should.be("Montagu");
                 newState.state.person.name.lastName.should.be("Norman");
@@ -367,6 +371,15 @@ class DeepStateTests extends buddy.SingleSuite {
                 it("should unify between arguments for type safety", {
                     CompilationShould.failFor(asset.changeFirstName(123));
                 });
+
+                /*
+                @include it("should handle array access for ImmutableArrays", {
+                    var next = asset.update(asset.state.person.tags[0].name, "Tagged", "ArrayUpdate");
+                    next.state.person.tags.length.should.be(2);
+                    next.state.person.tags[0].name.should.be("Tagged");
+                    next.state.person.tags[1].name.should.be("IG");
+                });
+                */
             });
 
             describe("Class instantiation", {
