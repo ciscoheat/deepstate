@@ -97,10 +97,12 @@ class Observable<S : DeepState<S,T> & DeepStateConstructor<S,T>, T> {
 
                     var stringPaths = paths.map(p -> {
                         var update = DeepState.createActionUpdate(p, null);
-                        if(update.params.length > 0)
+                        if(update.path.exists(u -> !Type.enumEq(u.index.expr, EConst(CIdent("null"))))) {
                             Context.error("Cannot subscribe to array access", p.pos);
+                        }
+
                         {
-                            expr: EConst(CString(update.path)),
+                            expr: EConst(CString(update.path.map(u -> u.field).join("."))),
                             pos: p.pos
                         }
                     });

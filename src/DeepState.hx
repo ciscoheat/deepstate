@@ -12,9 +12,8 @@ using haxe.macro.Tools;
 using haxe.macro.TypeTools;
 
 typedef ActionUpdate = {
-    path: String,
-    params: ImmutableArray<Int>,
-    value: Any
+    path: Array<{field: String, index: Expr}>,
+    value: Expr
 }
 #else
 typedef ClassFields = {cls: Class<Dynamic>, fields: Array<String>};
@@ -86,15 +85,15 @@ class DeepState<S : DeepStateConstructor<S,T> & DeepState<S,T>, T> {
     }
 
     // Make a deep copy of a new state object.
-    function createAndReplace(currentState : T, path : ImmutableArray<String>, newValue : Any) : T {
-        if(path[0] != "") path = path.unshift("");
+    function createAndReplace(currentState : T, path : Array<{field: String, index: Int}>, newValue : Any) : T {
+        if(path.length == 0 || path[0].field != "") path.unshift({field: "", index: null});
 
         var currentObj = currentState;
         var chain = [];
         for(i in 0...path.length-1) {
-            var fullPath = i == 0 ? '' : ~/\[\d+\]/g.replace(path.slice(1,i+1).join('.'), '');
-            var currentType = isArrayField(path[i]);
-            var fieldType = isArrayField(path[i+1]);
+            var fullPath = i == 0 ? '' : ~/\[\d+\]/g.replace(path.slice(1,i+1).map(p -> p.field).join('.'), '');
+            var currentType = isArrayField(path[i].field);
+            var fieldType = isArrayField(path[i+1].field);
 
             var fieldState = if(fieldType.index >= 0) null
                 //StateField.ArrayIndex(fieldType.index, fieldType.name)
@@ -177,7 +176,7 @@ class DeepState<S : DeepStateConstructor<S,T> & DeepState<S,T>, T> {
         function copyAndUpdateState(action : Action) : S {
             var newState = this.state;
             for(a in action.updates) {
-                newState = createAndReplace(newState, a.path.split("."), a.value);
+                newState = createAndReplace(newState, a.path, a.value);
             }
             return Type.createInstance(this.cls, [newState, this.middlewares]);
         }
@@ -210,20 +209,28 @@ class DeepState<S : DeepStateConstructor<S,T> & DeepState<S,T>, T> {
         true;
     } catch(e : Dynamic) false;
 
-    public static function createActionUpdate(path : Expr, value : Any) : ActionUpdate {
-        var pathStr = path.toString();
-        return if(pathStr == "state" || pathStr.lastIndexOf(".state") == pathStr.length-6) {
-            path: "",
-            params: [],
-            value: value
+    public static function createActionUpdate(path : Expr, value : Expr) : ActionUpdate {
+        var paths = new Array<{field: String, index: Expr}>();
+        function buildPath(p : Expr, param : Expr) switch p.expr {
+            case EField(e, field):
+                paths.unshift({field: field, index: param});
+                buildPath(e, macro null);
+            case EArray(e1, e2):
+                buildPath(e1, e2);
+            case EConst(CIdent(s)):
+                paths.unshift({field: s, index: param});
+            case _:
+                Context.error("Invalid: " + p.expr, p.pos);
         }
-        else {
-            var index = pathStr.indexOf("state.");
-            {
-                path: index == -1 ? pathStr : pathStr.substr(index + 6),
-                params: [],
-                value: value
-            }
+        buildPath(path, macro null);
+
+        while(paths[0].field != "state") paths.shift();
+        paths.shift();
+        //trace(paths);
+
+        return { 
+            path: paths,
+            value: value
         }
     }
 
@@ -349,7 +356,10 @@ class DeepState<S : DeepStateConstructor<S,T> & DeepState<S,T>, T> {
 			//return macro null;
 
         var macroUpdates = updates.map(u -> macro {
-            path: $v{u.path},
+            path: $a{u.path.map(p -> macro {
+                field: $v{p.field},
+                index: ${p.index}
+            })},
             value: ${u.value}
         });
 

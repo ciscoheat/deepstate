@@ -13,7 +13,7 @@ typedef Action = {
      * a value being changed.
      */
     final updates : ImmutableArray<{
-        final path : String;
+        final path : Array<{field: String, index: Int}>;
         final value : Any;
     }>;
 }
