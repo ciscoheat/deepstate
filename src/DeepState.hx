@@ -1,3 +1,4 @@
+import haxe.Unserializer;
 import haxe.DynamicAccess;
 import haxe.macro.Context;
 import haxe.macro.Expr;
@@ -10,105 +11,93 @@ using Lambda;
 #if macro
 using haxe.macro.Tools;
 using haxe.macro.TypeTools;
+#end
 
+/////////////////////////////////////////////////////////////////////
+
+enum MetaObjectType {
+    Basic;
+    Enum;
+    Anonymous(fields: Map<String, MetaObjectType>);
+    Instance(cls: String, fields: Map<String, MetaObjectType>);
+    Array(type: MetaObjectType);
+}
+
+#if macro
 typedef ActionUpdate = {
     path: Array<{field: String, index: Expr}>,
     value: Expr
 }
 #else
-typedef ClassFields = {cls: Class<Dynamic>, fields: Array<String>};
+private typedef ClassMetaData = {cls: Class<Dynamic>, fields: Array<String>};
 
-enum StateUpdate {
+// Data transformed from an Action
+private enum StateUpdate {
     Anonymous(currentObj : DynamicAccess<Dynamic>, field : StateField);
-    Instance(metadata : ClassFields, currentObj : Any, field : StateField);
-    //ArrayIndex(array : Array<Dynamic>, index : Int, field : StateField);
+    Instance(metadata : ClassMetaData, currentObj : Any, field : StateField);
+    Array(array : Array<Dynamic>, index : Int, type : StateUpdate);
 }
 
-enum StateField {
-    Object(field : String);
-    //ArrayIndex(index : Int, field : String);
+private enum StateField {
+    Anonymous(field : String);
+    Instance(/*metadata : ClassMetaData,*/ field : String);
+    Array(index : Int, field : String);
 }
 #end
 
-typedef DeepStateConstructor<S : DeepState<S,T> & DeepStateConstructor<S,T>, T> = Constructible<T -> ?ImmutableArray<Middleware<S,T>> -> Void>;
-
 @:autoBuild(ds.internal.DeepStateInfrastructure.build())
-class DeepState<S : DeepStateConstructor<S,T> & DeepState<S,T>, T> {
+class DeepState<S : DeepState<S,T>, T> {
     #if !macro
-    static final allStateObjects = new Map<String, Map<String, ClassFields>>();
-
     public final state : T;
     final middlewares : ImmutableArray<Middleware<S,T>>;
+    final stateType : MetaObjectType;
 
-    final cls : Class<Dynamic>;
-    final stateObjects : Map<String, ClassFields>;
-
-    function new(initialState : T, middlewares : ImmutableArray<Middleware<S,T>> = null) {
-        this.state = initialState;
+    function new(currentState : T, stateType : MetaObjectType, middlewares : ImmutableArray<Middleware<S,T>> = null) {
+        this.state = currentState;
+        this.stateType = stateType;
         this.middlewares = middlewares == null ? [] : middlewares;
-
-        // Restore metadata, that will be used to create a new state object.
-        var cls = this.cls = Type.getClass(this);
-        var name = Type.getClassName(cls);
-
-        this.stateObjects = if(allStateObjects.exists(name))
-            allStateObjects.get(name)
-        else {
-            var map = new Map<String, ClassFields>();
-            var metadata = haxe.rtti.Meta.getType(cls).field("stateObjects")[0];
-            
-            for(key in Reflect.fields(metadata)) {
-                var o : DynamicAccess<Dynamic> = Reflect.field(metadata, key);
-                map.set(key, {
-                    cls: Type.resolveClass(o.get('cls')),
-                    fields: o.get('fields')
-                });
-            }
-
-            allStateObjects.set(name, map);
-            map;
-        }
     }
 
     /////////////////////////////////////////////////////////////////
 
-    function isArrayField(field : String) : {index: Int, name: String} {
-        return if(field.length == 0 || field.charAt(field.length-1) != "]")
-            {index: -1, name: field};
-        else {
-            var lastPos = field.lastIndexOf("[");
-            {
-                index: Std.parseInt(field.substring(lastPos + 1, field.length-1)),
-                name: field.substr(0, lastPos)
-            }
-        }
+    function copy(newState : T) : S {
+        return cast Type.createInstance(Type.getClass(this), [newState, this.middlewares]);
     }
 
     // Make a deep copy of a new state object.
-    function createAndReplace(currentState : T, path : Array<{field: String, index: Int}>, newValue : Any) : T {
+    @:noCompletion function createAndReplace(currentState : T, path : Array<{field: String, index: Null<Int>}>, newValue : Any) : T {
         if(path.length == 0 || path[0].field != "") path.unshift({field: "", index: null});
 
         var currentObj = currentState;
         var chain = [];
         for(i in 0...path.length-1) {
-            var fullPath = i == 0 ? '' : ~/\[\d+\]/g.replace(path.slice(1,i+1).map(p -> p.field).join('.'), '');
-            var currentType = isArrayField(path[i].field);
-            var fieldType = isArrayField(path[i+1].field);
+            var fullPath = i == 0 ? '' : path.slice(1,i+1).map(p -> p.field).join('.');
+            var currentType = path[i];
+            var fieldType = path[i+1];
 
-            var fieldState = if(fieldType.index >= 0) null
-                //StateField.ArrayIndex(fieldType.index, fieldType.name)
+            trace(fullPath);
+
+            /*
+            var fieldState = if(fieldType.index != null)
+                StateField.Array(fieldType.index, fieldType.field);
+            else if(stateObjects.exists(fullPath))
+                StateField.Instance(fieldType.field);
             else
-                StateField.Object(fieldType.name);
+                StateField.Anonymous(fieldType.field);
 
-            var currentState = if(currentType.index >= 0) null
-                //StateUpdate.ArrayIndex(cast currentObj, currentType.index, fieldState)
-            else if(stateObjects.exists(fullPath)) {
+            function createStateUpdate(path : String) {
+
+            }
+            var currentState = if(currentType.index != null)
+                StateUpdate.Array(cast currentObj, currentType.index, fieldState);
+            else if(stateObjects.exists(fullPath))
                 StateUpdate.Instance(stateObjects.get(fullPath), currentObj, fieldState);
-            } else
+            else
                 StateUpdate.Anonymous(cast currentObj, fieldState);
 
             chain.push(currentState);
-            currentObj = currentObj.getProperty(fieldType.name);
+            currentObj = currentObj.getProperty(fieldType.field);
+            */
         };
         chain.reverse();
 
@@ -119,22 +108,25 @@ class DeepState<S : DeepStateConstructor<S,T> & DeepState<S,T>, T> {
         function createNew(update : StateUpdate, newValue : Any) : Any {
 
             function newFieldValue(currentObj : Any, field : StateField) : {field: String, value: Any} {
+                /*
                 return switch field {
-                    case Object(name): 
+                    case Anynomous(name): 
                         {field: name, value: newValue};
-                    /*
-                    case ArrayIndex(index, name):
+                    case Instance(metadata, name): 
+
+                    case Array(index, name):
                         var array : Array<Dynamic> = Reflect.field(currentObj, name);
                         var newArray = array.array();
                         newArray[index] = newValue;
                         {field: name, value: cast newValue};
-                    */
                 }
+                */
+                return null;
             }
 
             return switch update {
                 case Anonymous(currentObj, field):
-                    // Anonymous structure
+                    // Create a new anonymous structure
                     var update = newFieldValue(currentObj, field);
                     if(!currentObj.exists(update.field)) 
                         throw 'Field not found in state: ${update.field}';
@@ -144,6 +136,7 @@ class DeepState<S : DeepStateConstructor<S,T> & DeepState<S,T>, T> {
                     data;
 
                 case Instance(metadata, currentObj, field):
+                    // Create a new class with data constructor
                     var data = new haxe.DynamicAccess<Dynamic>();
 
                     var update = newFieldValue(currentObj, field);
@@ -158,10 +151,10 @@ class DeepState<S : DeepStateConstructor<S,T> & DeepState<S,T>, T> {
 
                     Type.createInstance(metadata.cls, [data]);
 
-                /*
-                case ArrayIndex(array, index, field):
-                    null;
-                */
+                case Array(array, index, field):
+                    // Create a new object in an array
+                    var newArray = array.copy();
+                    newArray;
             }
         }
 
@@ -172,13 +165,15 @@ class DeepState<S : DeepStateConstructor<S,T> & DeepState<S,T>, T> {
     }
 
     @:noCompletion public function updateState(action : Action) : S {
+        //for(u in action.updates) for(p in u.path) trace(p.field + (p.index != null ? ' [${p.index}]' : ''));
+
         // Last function in middleware chain - create a new state.
         function copyAndUpdateState(action : Action) : S {
             var newState = this.state;
             for(a in action.updates) {
                 newState = createAndReplace(newState, a.path, a.value);
             }
-            return Type.createInstance(this.cls, [newState, this.middlewares]);
+            return this.copy(newState);
         }
 
         // Apply middleware
@@ -191,7 +186,7 @@ class DeepState<S : DeepStateConstructor<S,T> & DeepState<S,T>, T> {
         return dispatch(action);
     }
 
-    function getFieldInState(state : T, path : String) {
+    @:noCompletion function getFieldInState(state : T, path : String) {
         if(path == "") return state;
 
         var output : Dynamic = state;
@@ -201,7 +196,9 @@ class DeepState<S : DeepStateConstructor<S,T> & DeepState<S,T>, T> {
         }
         return output;
     }
-    #else // if macro
+    #else
+
+    ///// Macro code ////////////////////////////////////////////////
 
     static function unifies(type : ComplexType, value : Expr) return try {
         // Test if types unify by trying to assign a temp var with the new value

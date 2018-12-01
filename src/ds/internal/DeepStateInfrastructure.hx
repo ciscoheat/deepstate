@@ -1,151 +1,172 @@
 package ds.internal;
 
 #if macro
-
 import haxe.macro.Context;
 import haxe.macro.Expr;
 import haxe.macro.Type;
-import ds.ImmutableArray;
 import haxe.DynamicAccess;
+import ds.ImmutableArray;
+import DeepState.MetaObjectType;
 
 using Lambda;
 using haxe.macro.TypeTools;
 using haxe.macro.MacroStringTools;
+using haxe.macro.ExprTools;
+#end
 
 /**
  * A macro build class for checking that the state type is final,
  * and storing path => type data for quick access to type checking.
  */
 class DeepStateInfrastructure {
+    public static final metadataKey = "deepState";
+
+#if macro
     static final checkedTypes = new Map<String, Bool>();
 
-    static public function build() {       
-        // { "state.field": {cls: clsName, fields: [f1,f2,f3,...]} }
-        var objectFields = new haxe.DynamicAccess<{cls: String, fields: Array<String>}>();
-
-        function setCheckedType(t : {pack : Array<String>, module: String, name: String}) {
-            var typeName = t.pack.join(".") + "." + t.module + "." + t.name;
-            checkedTypes.set(typeName, true);
-        }
+    static public function build() {
 
         function typeIsChecked(t : {pack : Array<String>, module: String, name: String}) {
-            return checkedTypes.exists(t.pack.join(".") + "." + t.module + "." + t.name);
+            var key = t.pack.join(".") + "." + t.module + "." + t.name;
+            if(checkedTypes.exists(key)) return true;
+            checkedTypes.set(key, true);
+            return false;
         }
 
-        function testTypeFields(name : ImmutableArray<String>, type : Type) : Void {
-            if(name.last().equals(Some("state")))
-                Context.error("A field cannot be named 'state' in a state structure.", Context.currentPos());
+        function toExpr(t : MetaObjectType) : Expr {
+            function mapToExpr(map : Map<String, MetaObjectType>) : Expr {
+                return {
+                    expr: EArrayDecl([for(key in map.keys()) {
+                        expr: EBinop(OpArrow, macro $v{key}, toExpr(map[key])),
+                        pos: Context.currentPos()
+                    }]),
+                    pos: Context.currentPos()
+                }
+            }
 
-            //trace('\\-- Testing type ${name.join(".")} ($type) for final');
-            switch type {
+            return switch t {
+                case Basic: macro DeepState.MetaObjectType.Basic;
+                case Enum: macro DeepState.MetaObjectType.Enum;
+                case Anonymous(fields): macro DeepState.MetaObjectType.Anonymous(${mapToExpr(fields)});
+                case Instance(cls, fields): macro DeepState.MetaObjectType.Instance($v{cls}, ${mapToExpr(fields)});
+                case Array(type): macro DeepState.MetaObjectType.Array(${toExpr(type)});
+            }
+        }
+
+        function stateFieldType(type : Type, count = 0) : MetaObjectType {
+            if(count > 2)
+                Context.error("Recursive type follow for " + type, Context.currentPos());
+
+            return switch type {
+                case TEnum(t, params):
+                    Enum;
+
                 case TAnonymous(a):
-                    // Check if all fields in typedef are final
-                    for(f in a.get().fields) {
-                        var fieldName = name.push(f.name);
-                        //trace("   \\- Testing field " + fieldName.join("."));
-                        switch f.kind {
-                            case FVar(read, write) if(write == AccNever || write == AccCtor):
-                                testTypeFields(fieldName, f.type);
-                            case _:
-                                Context.error('${fieldName.join(".")} is not final, type cannot be used in DeepState.', f.pos);
-                        }
+                    var fields = new Map<String, MetaObjectType>();
+                    for(field in a.get().fields) switch field.kind {
+                        case FVar(read, write) if(write == AccNever || write == AccCtor):
+                            fields.set(field.name, stateFieldType(field.type));
+                        case _:
+                            Context.error('Field is not final, cannot be used in DeepState.', field.pos);
                     }
+                    Anonymous(fields);
+
                 case TInst(t, _):
                     var type = t.get();
-                    if(type.pack.length == 0 && type.name == "String") {}
-                    else if(type.pack.length == 0 && type.name == "Date") {}
-                    else if(!typeIsChecked(type)) {
-                        setCheckedType(type);
-                        var fields = new Array<String>();
-                        // Check if all public fields in class are final
-                        for(field in type.fields.get()) if(field.isPublic) switch field.kind {
+                    if(type.pack.length == 0 && type.name == "String") Basic
+                    else if(type.pack.length == 0 && type.name == "Date") Basic
+                    else if(type.pack.length == 0 && type.name == "Array")
+                        Context.error('Field is a mutable Array, cannot be used in DeepState. Use ds.ImmutableArray instead.', Context.currentPos());
+                    else {
+                        var fields = new Map<String, MetaObjectType>();
+                        for(field in type.fields.get()) switch field.kind {
                             case FVar(read, write):
-                                var fieldName = name.push(field.name);
-                                if(write == AccNever || write == AccCtor) {
-                                    testTypeFields(fieldName, field.type);
-                                    fields.push(field.name);
-                                }
-                                else {
-                                    Context.error('${fieldName.join(".")} is not final, type cannot be used in DeepState.', type.pos);
-                                }
-                            case _:
+                                if(field.isFinal)
+                                    fields.set(field.name, stateFieldType(field.type));
+                                else
+                                    Context.error('Field is not final, cannot be used in DeepState.', field.pos);
+                            case FMethod(_):
                         }
 
-                        // Add object information to metadata
                         var clsName = haxe.macro.MacroStringTools.toDotPath(type.pack, type.name);
-                        objectFields.set(name.join(''), {cls: clsName, fields: fields});
+                        Instance(clsName, fields);
                     }
                 
                 case TAbstract(t, params):
-                    // Allow Int, Bool, Float and the ds.ImmutableX types 
                     var abstractType = t.get();
+
                     if(abstractType.pack.length == 0 && ( 
                         abstractType.name == "Bool" || 
                         abstractType.name == "Float" ||
                         abstractType.name == "Int"
-                    )) {} // Ok
-                    else if(abstractType.pack[0] == "haxe" && 
-                        abstractType.name == "Int64"
-                    ) {} // Ok
-                    else if(abstractType.pack[0] == "ds" && 
-                        abstractType.name == "ImmutableJson"
-                    ) {} // Ok
+                    )) { 
+                        Basic;
+                    }
+                    else if(abstractType.pack[0] == "haxe" && abstractType.name == "Int64") 
+                        Basic
+                    else if(abstractType.pack[0] == "ds" && abstractType.name == "ImmutableJson")
+                        Basic
                     else if(abstractType.pack[0] == "ds" && (
-                        abstractType.name == "ImmutableArray" || 
                         abstractType.name == "ImmutableList" ||
                         abstractType.name == "ImmutableMap"
                     )) {
-                        testTypeFields(name, params[0]);
+                        Basic;
+                    }
+                    else if(abstractType.pack[0] == "ds" && abstractType.name == "ImmutableArray") {
+                        Array(stateFieldType(params[0]));
                     }
                     else {
-                        testTypeFields(
-                            name, 
-                            Context.followWithAbstracts(abstractType.type)
-                        );
+                        stateFieldType(Context.followWithAbstracts(abstractType.type), count+1);
                     }
 
                 case TType(t, params):
                     var typede = t.get();
-                    if(!typeIsChecked(typede)) {
-                        setCheckedType(typede);
-                        testTypeFields(name, typede.type);
-                    }
+                    stateFieldType(typede.type, count+1);
 
                 case TLazy(f):
-                    testTypeFields(name, f());
+                    stateFieldType(f(), count+1);
 
                 case x:
-                    Context.error('Unsupported DeepState type for ${name.join(".")}: $x', Context.currentPos());
+                    Context.error('Unsupported DeepState type: $x', Context.currentPos());
             }
         }
 
         /////////////////////////////////////////////////////////////
 
         var cls = Context.getLocalClass().get();
-        var type = cls.superClass.params[1];
+        var stateType = stateFieldType(cls.superClass.params[1]);
 
-        testTypeFields([], type);
+        //trace(toExpr(stateType).toString());
 
-        // Set metadata that DeepState will access in its constructor.
-        cls.meta.add("stateObjects", [macro $v{objectFields}], cls.pos);
+        //trace("===== " + cls.name + " =====");
+        //trace(Std.string(stateType).split("(").join("(\n").split(")").join(")\n"));
 
         // Add a constructor if not defined
         var fields = Context.getBuildFields();
-        if(fields.exists(f -> f.name == "new")) return null;
-
-        return fields.concat([{
+        if(!fields.exists(f -> f.name == "new")) fields.push({
             access: [APublic],
             kind: FFun({
                 args: [
-                    {name: 'initialState', type: null},
+                    {name: 'currentState', type: null},
                     {name: 'middlewares', type: null, opt: true}
                 ],
-                expr: macro super(initialState, middlewares),
+                expr: macro super(currentState, _stateType, middlewares),
                 ret: null
             }),
             name: "new",
             pos: Context.currentPos()
-        }]);
+        });
+
+        // Add the stateType map
+        fields.push({
+            access: [AFinal, AStatic],
+            doc: "Internal variable for accessing the state.",
+            kind: FieldType.FVar(null, toExpr(stateType)),
+            name: "_stateType",
+            pos: Context.currentPos()
+        });
+
+        return fields;
     }
-}
 #end
+}

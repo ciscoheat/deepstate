@@ -2,12 +2,11 @@ package ds;
 
 import haxe.macro.Context;
 import haxe.macro.Expr;
-import DeepState.DeepStateConstructor;
 
 using Reflect;
 using Lambda;
 
-class Observable<S : DeepState<S,T> & DeepStateConstructor<S,T>, T> {
+class Observable<S : DeepState<S,T>, T> {
     final observers : Array<Observer<T>>;
 
     public function new() {

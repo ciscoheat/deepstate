@@ -1,4 +1,3 @@
-import DeepState.DeepStateConstructor;
 import haxe.ds.Option;
 import buddy.CompilationShould;
 import ds.*;
@@ -23,10 +22,30 @@ typedef TestState = {
         final json : ImmutableJson;
 }
 
+enum Color<T> {
+    Black(a : ImmutableArray<String>);
+    White(b : Date);
+}
+
+typedef Chessboard = {
+    final board : ImmutableArray<ImmutableArray<{
+        final color : Color<Int>; 
+        final piece : String;
+    }>>;
+    final players : {
+        final white : String;
+        final black : String;
+    }
+}
+
+class Chess extends DeepState<Chess, Chessboard> {}
+
+/*
 typedef RecursiveState = {
     final node : RecursiveState;
     final value : String;
 }
+*/
 
 class Person implements DataClass {
     public final firstName : String;
@@ -80,13 +99,15 @@ class FBI extends DeepState<FBI, DataClassState> {
     }
 }
 
+/*
 class Recursive extends DeepState<Recursive, RecursiveState> {
     public function new(state, middleware = null) super(state, middleware);
 }
+*/
 
 /////////////////////////////////////////////////////////////////////
 
-class MiddlewareLog<S : DeepState<S,T> & DeepStateConstructor<S,T>, T> {
+class MiddlewareLog<S : DeepState<S,T>, T> {
     public function new() {}
 
     public static var logCount = new Array<String>();
@@ -274,10 +295,12 @@ class DeepStateTests extends buddy.SingleSuite {
             });
             */
 
+            /*
             it("should handle recursive typedefs", {
                 var rec = new Recursive({node: null, value: null});
                 rec.should.not.be(null);
             });
+            */
 
             /////////////////////////////////////////////////////////
 
@@ -360,14 +383,12 @@ class DeepStateTests extends buddy.SingleSuite {
                     CompilationShould.failFor(asset.changeFirstName(123));
                 });
 
-                /*
                 @include it("should handle array access for ImmutableArrays", {
                     var next = asset.update(asset.state.person.tags[0].name, "Tagged", "ArrayUpdate");
                     next.state.person.tags.length.should.be(2);
                     next.state.person.tags[0].name.should.be("Tagged");
                     next.state.person.tags[1].name.should.be("IG");
                 });
-                */
             });
 
             describe("Class instantiation", {
