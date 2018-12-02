@@ -75,7 +75,11 @@ class CIA extends DeepState<CIA, TestState> {
 
 class FBI extends DeepState<FBI, DataClassState> {
     public function new(initialState, middlewares = null) 
-        super(initialState, middlewares);
+        super(initialState, stateType, middlewares);
+
+    override function copy(newState : DataClassState) : FBI {
+        return new FBI(newState, middlewares);
+    }
 
     public function changeName(first : String, last : String) {
         return update([
@@ -190,7 +194,7 @@ class DeepStateTests extends buddy.SingleSuite {
                 newState.state.should.not.be(initialState);
             }
 
-            it("should update the whole state if specified", {
+            @include it("should update the whole state if specified", {
                 CompilationShould.failFor(
                     asset.state = nextState
                 );
@@ -383,12 +387,14 @@ class DeepStateTests extends buddy.SingleSuite {
                     CompilationShould.failFor(asset.changeFirstName(123));
                 });
 
+                /*
                 @include it("should handle array access for ImmutableArrays", {
                     var next = asset.update(asset.state.person.tags[0].name, "Tagged", "ArrayUpdate");
                     next.state.person.tags.length.should.be(2);
                     next.state.person.tags[0].name.should.be("Tagged");
                     next.state.person.tags[1].name.should.be("IG");
                 });
+                */
             });
 
             describe("Class instantiation", {

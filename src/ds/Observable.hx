@@ -5,6 +5,7 @@ import haxe.macro.Expr;
 
 using Reflect;
 using Lambda;
+using haxe.macro.ExprTools;
 
 class Observable<S : DeepState<S,T>, T> {
     final observers : Array<Observer<T>>;
@@ -95,13 +96,12 @@ class Observable<S : DeepState<S,T>, T> {
                         f.args[i].type = Context.toComplexType(pathTypes[i]);
 
                     var stringPaths = paths.map(p -> {
-                        var update = DeepState.createActionUpdate(p, null);
-                        if(update.path.exists(u -> !Type.enumEq(u.index.expr, EConst(CIdent("null"))))) {
+                        var path = p.toString();
+                        if(path.indexOf("[") >= 0)
                             Context.error("Cannot subscribe to array access", p.pos);
-                        }
 
                         {
-                            expr: EConst(CString(update.path.map(u -> u.field).join("."))),
+                            expr: EConst(CString(~/^.*state\.?/.replace(path, ''))),
                             pos: p.pos
                         }
                     });

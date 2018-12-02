@@ -12,46 +12,13 @@ using Lambda;
 using haxe.macro.TypeTools;
 using haxe.macro.MacroStringTools;
 using haxe.macro.ExprTools;
-#end
 
 /**
  * A macro build class for checking that the state type is final,
- * and storing path => type data for quick access to type checking.
+ * and creating a path => type statec structure for quick access.
  */
 class DeepStateInfrastructure {
-    public static final metadataKey = "deepState";
-
-#if macro
-    static final checkedTypes = new Map<String, Bool>();
-
     static public function build() {
-
-        function typeIsChecked(t : {pack : Array<String>, module: String, name: String}) {
-            var key = t.pack.join(".") + "." + t.module + "." + t.name;
-            if(checkedTypes.exists(key)) return true;
-            checkedTypes.set(key, true);
-            return false;
-        }
-
-        function toExpr(t : MetaObjectType) : Expr {
-            function mapToExpr(map : Map<String, MetaObjectType>) : Expr {
-                return {
-                    expr: EArrayDecl([for(key in map.keys()) {
-                        expr: EBinop(OpArrow, macro $v{key}, toExpr(map[key])),
-                        pos: Context.currentPos()
-                    }]),
-                    pos: Context.currentPos()
-                }
-            }
-
-            return switch t {
-                case Basic: macro DeepState.MetaObjectType.Basic;
-                case Enum: macro DeepState.MetaObjectType.Enum;
-                case Anonymous(fields): macro DeepState.MetaObjectType.Anonymous(${mapToExpr(fields)});
-                case Instance(cls, fields): macro DeepState.MetaObjectType.Instance($v{cls}, ${mapToExpr(fields)});
-                case Array(type): macro DeepState.MetaObjectType.Array(${toExpr(type)});
-            }
-        }
 
         function stateFieldType(type : Type, count = 0) : MetaObjectType {
             if(count > 2)
@@ -136,37 +103,86 @@ class DeepStateInfrastructure {
         var cls = Context.getLocalClass().get();
         var stateType = stateFieldType(cls.superClass.params[1]);
 
-        //trace(toExpr(stateType).toString());
+        function toExpr(t : MetaObjectType) : Expr {
+            function mapToExpr(map : Map<String, MetaObjectType>) : Expr {
+                return {
+                    expr: EArrayDecl([for(key in map.keys()) {
+                        expr: EBinop(OpArrow, macro $v{key}, toExpr(map[key])),
+                        pos: Context.currentPos()
+                    }]),
+                    pos: Context.currentPos()
+                }
+            }
+
+            return switch t {
+                case Basic: macro DeepState.MetaObjectType.Basic;
+                case Enum: macro DeepState.MetaObjectType.Enum;
+                case Anonymous(fields): macro DeepState.MetaObjectType.Anonymous(${mapToExpr(fields)});
+                case Instance(cls, fields): macro DeepState.MetaObjectType.Instance($v{cls}, ${mapToExpr(fields)});
+                case Array(type): macro DeepState.MetaObjectType.Array(${toExpr(type)});
+            }
+        }
+
+        /*
+        trace(toExpr(stateType).toString());
 
         //trace("===== " + cls.name + " =====");
         //trace(Std.string(stateType).split("(").join("(\n").split(")").join(")\n"));
 
+        var e = macro state.board[i+1][5].piece.name[last];
+
+        var output : Array<String> = [];
+        function debugExpr(e : Expr) switch e.expr {
+            case EField(e1, name): 
+                output.push("Field: " + name);
+                debugExpr(e1);
+            case EArray(e1, e2):
+                output.push("Array: " + e2.toString());
+                debugExpr(e1);
+            case EConst(CIdent(s)):
+                output.push("Field: " + s);
+            case x:
+                output.push("UNKNOWN: " + x);
+        }
+        debugExpr(e);
+        output.reverse();
+        trace("\n" + output.join("\n")+ "\n================================");
+        */
+
         // Add a constructor if not defined
         var fields = Context.getBuildFields();
-        if(!fields.exists(f -> f.name == "new")) fields.push({
-            access: [APublic],
-            kind: FFun({
-                args: [
-                    {name: 'currentState', type: null},
-                    {name: 'middlewares', type: null, opt: true}
-                ],
-                expr: macro super(currentState, _stateType, middlewares),
-                ret: null
-            }),
-            name: "new",
-            pos: Context.currentPos()
-        });
+        if(!fields.exists(f -> f.name == "new")) {
+            fields.push({
+                access: [APublic],
+                kind: FFun({
+                    args: [
+                        {name: 'currentState', type: null},
+                        {name: 'middlewares', type: null, opt: true}
+                    ],
+                    expr: macro super(currentState, stateType, middlewares),
+                    ret: null
+                }),
+                name: "new",
+                pos: Context.currentPos()
+            });
+        }
+        else if(!fields.exists(f -> f.name == "copy")) {
+            Context.warning(
+                "'copy' method not overridden despite inherited constructor.", 
+                fields.find(f -> f.name == "new").pos
+            );
+        }
 
         // Add the stateType map
         fields.push({
             access: [AFinal, AStatic],
             doc: "Internal variable for accessing the state.",
             kind: FieldType.FVar(null, toExpr(stateType)),
-            name: "_stateType",
+            name: "stateType",
             pos: Context.currentPos()
         });
 
         return fields;
     }
-#end
 }
+#end

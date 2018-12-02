@@ -1,3 +1,4 @@
+import ds.Action.PathAccess;
 import haxe.Unserializer;
 import haxe.DynamicAccess;
 import haxe.macro.Context;
@@ -11,9 +12,20 @@ using Lambda;
 #if macro
 using haxe.macro.Tools;
 using haxe.macro.TypeTools;
+
+// Intermediary enum, used to test for duplicate actions before
+// transforming it to to Action.
+private enum PathAccessExpr {
+    Field(name : String);
+    Array(e : Expr);
+}
+
+private typedef ActionUpdateExpr = {
+    var path : Array<PathAccessExpr>;
+    var value : Expr;
+}
 #end
 
-/////////////////////////////////////////////////////////////////////
 
 enum MetaObjectType {
     Basic;
@@ -23,107 +35,34 @@ enum MetaObjectType {
     Array(type: MetaObjectType);
 }
 
-#if macro
-typedef ActionUpdate = {
-    path: Array<{field: String, index: Expr}>,
-    value: Expr
-}
-#else
-private typedef ClassMetaData = {cls: Class<Dynamic>, fields: Array<String>};
-
-// Data transformed from an Action
-private enum StateUpdate {
-    Anonymous(currentObj : DynamicAccess<Dynamic>, field : StateField);
-    Instance(metadata : ClassMetaData, currentObj : Any, field : StateField);
-    Array(array : Array<Dynamic>, index : Int, type : StateUpdate);
-}
-
-private enum StateField {
-    Anonymous(field : String);
-    Instance(/*metadata : ClassMetaData,*/ field : String);
-    Array(index : Int, field : String);
-}
-#end
+/////////////////////////////////////////////////////////////////////
 
 @:autoBuild(ds.internal.DeepStateInfrastructure.build())
 class DeepState<S : DeepState<S,T>, T> {
     #if !macro
     public final state : T;
     final middlewares : ImmutableArray<Middleware<S,T>>;
-    final stateType : MetaObjectType;
+    @:noCompletion final _stateType : MetaObjectType;
 
     function new(currentState : T, stateType : MetaObjectType, middlewares : ImmutableArray<Middleware<S,T>> = null) {
         this.state = currentState;
-        this.stateType = stateType;
+        this._stateType = stateType;
         this.middlewares = middlewares == null ? [] : middlewares;
     }
 
     /////////////////////////////////////////////////////////////////
 
+    // Override if you create an inherited constructor.
     function copy(newState : T) : S {
         return cast Type.createInstance(Type.getClass(this), [newState, this.middlewares]);
     }
 
     // Make a deep copy of a new state object.
-    @:noCompletion function createAndReplace(currentState : T, path : Array<{field: String, index: Null<Int>}>, newValue : Any) : T {
-        if(path.length == 0 || path[0].field != "") path.unshift({field: "", index: null});
+    @:noCompletion function createAndReplace(currentState : T, path : ImmutableArray<PathAccess>, newValue : Any) : T {
+        return null;
+    }
 
-        var currentObj = currentState;
-        var chain = [];
-        for(i in 0...path.length-1) {
-            var fullPath = i == 0 ? '' : path.slice(1,i+1).map(p -> p.field).join('.');
-            var currentType = path[i];
-            var fieldType = path[i+1];
-
-            trace(fullPath);
-
-            /*
-            var fieldState = if(fieldType.index != null)
-                StateField.Array(fieldType.index, fieldType.field);
-            else if(stateObjects.exists(fullPath))
-                StateField.Instance(fieldType.field);
-            else
-                StateField.Anonymous(fieldType.field);
-
-            function createStateUpdate(path : String) {
-
-            }
-            var currentState = if(currentType.index != null)
-                StateUpdate.Array(cast currentObj, currentType.index, fieldState);
-            else if(stateObjects.exists(fullPath))
-                StateUpdate.Instance(stateObjects.get(fullPath), currentObj, fieldState);
-            else
-                StateUpdate.Anonymous(cast currentObj, fieldState);
-
-            chain.push(currentState);
-            currentObj = currentObj.getProperty(fieldType.field);
-            */
-        };
-        chain.reverse();
-
-        //trace('========='); trace('${path.join(".")} -> $newValue'); trace(chain.map(c -> { fullPath: c.fullPath, field: c.field }));
-
-        // Create a new object based on the current one, replacing a single field,
-        // representing a state path.
-        function createNew(update : StateUpdate, newValue : Any) : Any {
-
-            function newFieldValue(currentObj : Any, field : StateField) : {field: String, value: Any} {
-                /*
-                return switch field {
-                    case Anynomous(name): 
-                        {field: name, value: newValue};
-                    case Instance(metadata, name): 
-
-                    case Array(index, name):
-                        var array : Array<Dynamic> = Reflect.field(currentObj, name);
-                        var newArray = array.array();
-                        newArray[index] = newValue;
-                        {field: name, value: cast newValue};
-                }
-                */
-                return null;
-            }
-
+/*
             return switch update {
                 case Anonymous(currentObj, field):
                     // Create a new anonymous structure
@@ -156,13 +95,7 @@ class DeepState<S : DeepState<S,T>, T> {
                     var newArray = array.copy();
                     newArray;
             }
-        }
-
-        var newValue : Dynamic = newValue;
-        for(update in chain) newValue = createNew(update, newValue);
-
-        return cast newValue;
-    }
+*/
 
     @:noCompletion public function updateState(action : Action) : S {
         //for(u in action.updates) for(p in u.path) trace(p.field + (p.index != null ? ' [${p.index}]' : ''));
@@ -198,7 +131,9 @@ class DeepState<S : DeepState<S,T>, T> {
     }
     #else
 
-    ///// Macro code ////////////////////////////////////////////////
+      ////////////////////////////////////////////////////////////////
+     //// Macro code ////////////////////////////////////////////////
+    ////////////////////////////////////////////////////////////////
 
     static function unifies(type : ComplexType, value : Expr) return try {
         // Test if types unify by trying to assign a temp var with the new value
@@ -206,37 +141,37 @@ class DeepState<S : DeepState<S,T>, T> {
         true;
     } catch(e : Dynamic) false;
 
-    public static function createActionUpdate(path : Expr, value : Expr) : ActionUpdate {
-        var paths = new Array<{field: String, index: Expr}>();
-        function buildPath(p : Expr, param : Expr) switch p.expr {
-            case EField(e, field):
-                paths.unshift({field: field, index: param});
-                buildPath(e, macro null);
-            case EArray(e1, e2):
-                buildPath(e1, e2);
-            case EConst(CIdent(s)):
-                paths.unshift({field: s, index: param});
-            case _:
-                Context.error("Invalid: " + p.expr, p.pos);
-        }
-        buildPath(path, macro null);
-
-        while(paths[0].field != "state") paths.shift();
-        paths.shift();
-        //trace(paths);
-
-        return { 
-            path: paths,
-            value: value
-        }
-    }
-
-    static function _updateField(path : Expr, pathType : haxe.macro.Type, newValue : Expr) : ActionUpdate {
+    static function _updateField(path : Expr, pathType : haxe.macro.Type, newValue : Expr) : ActionUpdateExpr {
         return if(!unifies(Context.toComplexType(pathType), newValue)) {
             Context.error("Value should be of type " + pathType.toString(), newValue.pos);
-        } else
-            createActionUpdate(path, newValue);
+        } else {
+            var filterPath = true;
+            var paths = new Array<PathAccessExpr>();
+            function parseUpdateExpr(e : Expr) switch e.expr {
+                case EField(e1, name): 
+                    if(name == "state") filterPath = false
+                    else if(filterPath) paths.push(Field(name));
+                    parseUpdateExpr(e1);
+                case EArray(e1, e2):
+                    paths.push(Array(e2));
+                    parseUpdateExpr(e1);
+                case EConst(CIdent(s)):
+                    if(s == "state") filterPath = false 
+                    else if(filterPath) paths.push(Field(s));
+                case x:
+                    Context.error("Invalid DeepState update expression.", e.pos);
+            }
+            parseUpdateExpr(path);
+            paths.reverse();
+
+            { 
+                path: paths,
+                value: newValue
+            }
+        }
     }
+
+    /////////////////////////////////////////////////////////////////
 
     static function _updateFunc(path : Expr, pathType : haxe.macro.Type, newValue : Expr) {
         return switch newValue.expr {
@@ -287,8 +222,10 @@ class DeepState<S : DeepState<S,T>, T> {
         }
     }
 
+    /////////////////////////////////////////////////////////////////
+
     static var typeNameCalls = new Map<String, {hash: String, pos: haxe.macro.Position}>();
-    static function checkDuplicateAction(store : Expr, actionType : String, updates : Array<ActionUpdate>, pos) {
+    static function checkDuplicateAction(store : Expr, actionType : String, updates : Array<ActionUpdateExpr>, pos) {
 
         var clsName = try switch Context.typeof(store) {
             case TInst(t, _):
@@ -300,13 +237,23 @@ class DeepState<S : DeepState<S,T>, T> {
             Context.error("Asset type not found, please provide a type hint.", store.pos);
         }
 
+        var updateHash = [for(u in updates) {
+            [for(p in u.path) switch p {
+                case Field(name): name;
+                case Array(e): "()";
+            }].join(".");
+        }];
+        updateHash.sort((a,b) -> a < b ? -1 : 1);
+
+        //trace(updateHash);
+
         var hashKey = clsName + actionType;
-        var updateHash = ' => [' + updates.map(u -> u.path).join("] [") + ']';
+        var actionHash = ' => [' + updateHash.join("] [") + ']';
 
         if(typeNameCalls.exists(hashKey)) {
             var typeHash = typeNameCalls.get(hashKey);
 
-            if(typeHash.hash != updateHash) {
+            if(typeHash.hash != actionHash) {
                 var msg = 'Duplicate action type "$actionType", change updates or action type name.';
                 Context.warning(msg, typeHash.pos);
                 Context.error(msg, pos);
@@ -314,18 +261,38 @@ class DeepState<S : DeepState<S,T>, T> {
         }
         else {
             #if deepstate_list_actions
-            Context.warning('$actionType$updateHash', pos);
+            Context.warning('$actionType$actionHash', pos);
             #end
-            typeNameCalls.set(hashKey, {hash: updateHash, pos: pos});
+            typeNameCalls.set(hashKey, {hash: actionHash, pos: pos});
         }
     }
 
-    static function createAction(
-        store : ExprOf<DeepState<Dynamic,Dynamic>>, 
-        actionType : Null<ExprOf<String>>, 
-        updates : Array<ActionUpdate>
-    ) : Expr {
+    #end
 
+    public macro function update(store : ExprOf<DeepState<Dynamic>>, args : Array<Expr>) {
+        var actionType : Expr = null;
+
+        // Extract Action updates from the parameters
+        var updates = switch args[0].expr {
+            case EArrayDecl(values): 
+                actionType = args[1];
+
+                values.flatMap(e -> {
+                    switch e.expr {
+                        case EBinop(op, e1, e2) if(op == OpArrow):
+                            _updateIn(e1, e2);
+                        case _: 
+                            Context.error("Parameter must be an array map declaration: [K => V, ...]", e.pos);
+                            null;
+                    }
+                }).array();
+            
+            case _: 
+                actionType = args[2];
+                _updateIn(args[0], args[1]);
+        }
+
+        // Set a default action type (Class.method) if not specified
         var aTypeString : String;
         var aTypePos : Position;
 
@@ -348,47 +315,27 @@ class DeepState<S : DeepState<S,T>, T> {
 
         checkDuplicateAction(store, aTypeString, updates, aTypePos);
 
-		// Display mode and vshaxe diagnostics have some problems with this.
-		//if(Context.defined("display") || Context.defined("display-details")) 
-			//return macro null;
+        // Display mode and vshaxe diagnostics have some problems with this.
+        //if(Context.defined("display") || Context.defined("display-details")) 
+            //return macro null;
 
-        var macroUpdates = updates.map(u -> macro {
-            path: $a{u.path.map(p -> macro {
-                field: $v{p.field},
-                index: ${p.index}
-            })},
-            value: ${u.value}
-        });
+        return {
+            var realUpdates = [for(u in updates) {
+                var paths = [for(p in u.path) switch p {
+                    case Field(name): macro ds.PathAccess.Field($v{name});
+                    case Array(e): e;
+                }];
 
-        return macro $store.updateState({
-            type: $aType,
-            updates: $a{macroUpdates}
-        });
-    }    
-    #end
+                macro {
+                    path: $a{paths},
+                    value: ${u.value}
+                }
+            }];
 
-    public macro function update(store : ExprOf<DeepState<Dynamic>>, args : Array<Expr>) {
-        var actionType : Expr = null;
-
-        var updates = switch args[0].expr {
-            case EArrayDecl(values): 
-                actionType = args[1];
-
-                values.flatMap(e -> {
-                    switch e.expr {
-                        case EBinop(op, e1, e2) if(op == OpArrow):
-                            _updateIn(e1, e2);
-                        case _: 
-                            Context.error("Parameter must be an array map declaration: [K => V, ...]", e.pos);
-                            null;
-                    }
-                }).array();
-            
-            case _: 
-                actionType = args[2];
-                _updateIn(args[0], args[1]);
+            macro $store.updateState({
+                type: $aType,
+                updates: $a{realUpdates}
+            });
         }
-
-        return createAction(store, actionType, updates);
     }
 }
