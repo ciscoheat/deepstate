@@ -289,10 +289,13 @@ class DeepStateTests extends buddy.SingleSuite {
                 newState.state.timestamps.should.not.be(timestamps);
             });
 
-            it("should throw on recursive typedefs", {
+            it("should throw on deep recursive updates", {
                 var rec = new Recursive({node: {node: {node: null, value: "3"}, value: "2"}, value: "1"});
 
                 rec.state.node.node.value.should.be("3");
+                var next = rec.update(rec.state.node, node -> {node: node.node, value: "A"}, "ShallowRecursiveUpdate");
+                next.state.node.value.should.be("A");
+
                 (function() rec.update(rec.state.node.node.value, "4")).should.throwType(String);
             });
 
