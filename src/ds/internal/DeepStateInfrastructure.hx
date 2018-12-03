@@ -20,17 +20,17 @@ using haxe.macro.ExprTools;
 class DeepStateInfrastructure {
     static public function build() {
 
-        var _checkedTypes = new Map<String, Bool>();
+        var _checkedTypes = new Map<String, String>();
         function stateFieldType(type : Type, count = 0) : MetaObjectType {
 
             function checkType(t : {pack : Array<String>, module: String, name: String}) {
                 var typeName = t.pack.join(".") + "." + t.module + "." + t.name;
-                return _checkedTypes.exists(typeName);
+                return _checkedTypes.get(typeName);
             }
 
             function setCheckType(t : {pack : Array<String>, module: String, name: String}) {
                 var typeName = t.pack.join(".") + "." + t.module + "." + t.name;
-                _checkedTypes.set(typeName, true);
+                _checkedTypes.set(typeName, typeName);
             }
 
             if(count > 100)
@@ -58,21 +58,26 @@ class DeepStateInfrastructure {
                     else if(type.pack.length == 0 && type.name == "Array")
                         Context.error('Field is a mutable Array, cannot be used in DeepState. Use ds.ImmutableArray instead.', Context.currentPos());
                     else {
-                        var fields = new Map<String, MetaObjectType>();
-                        for(field in type.fields.get()) switch field.kind {
-                            case FVar(read, write):
-                                if(field.isFinal)
-                                    fields.set(field.name, stateFieldType(field.type, count+1));
-                                else
-                                    Context.error('Field is not final, cannot be used in DeepState.', field.pos);
-                            case FMethod(_):
+                        if(checkType(type) != null) Recursive(checkType(type))
+                        else {
+                            setCheckType(type);
+
+                            var fields = new Map<String, MetaObjectType>();
+                            for(field in type.fields.get()) switch field.kind {
+                                case FVar(read, write):
+                                    if(field.isFinal)
+                                        fields.set(field.name, stateFieldType(field.type, count+1));
+                                    else
+                                        Context.error('Field is not final, cannot be used in DeepState.', field.pos);
+                                case FMethod(_):
+                            }
+                            
+                            var clsName = haxe.macro.MacroStringTools.toDotPath(type.pack, type.name);
+                            //trace("TInst: " + clsName);
+                            Instance(clsName, fields);
                         }
-                        
-                        var clsName = haxe.macro.MacroStringTools.toDotPath(type.pack, type.name);
-                        //trace("TInst: " + clsName);
-                        Instance(clsName, fields);
                     }
-                
+
                 case TAbstract(t, params):
                     var abstractType = t.get();
 
@@ -105,7 +110,9 @@ class DeepStateInfrastructure {
                 case TType(t, params):
                     var typede = t.get();
                     //trace("TType: " + typede.name);
-                    return if(checkType(typede)) Recursive
+                    return if(checkType(typede) != null) {
+                        Recursive(checkType(typede));
+                    }
                     else {
                         setCheckType(typede);
                         stateFieldType(typede.type, count+1);
@@ -138,38 +145,12 @@ class DeepStateInfrastructure {
             return switch t {
                 case Basic: macro DeepState.MetaObjectType.Basic;
                 case Enum: macro DeepState.MetaObjectType.Enum;
-                case Recursive: macro DeepState.MetaObjectType.Recursive;
+                case Recursive(type): macro DeepState.MetaObjectType.Recursive($v{type});
                 case Anonymous(fields): macro DeepState.MetaObjectType.Anonymous(${mapToExpr(fields)});
                 case Instance(cls, fields): macro DeepState.MetaObjectType.Instance($v{cls}, ${mapToExpr(fields)});
                 case Array(type): macro DeepState.MetaObjectType.Array(${toExpr(type)});
             }
         }
-
-        /*
-        trace(toExpr(stateType).toString());
-
-        //trace("===== " + cls.name + " =====");
-        //trace(Std.string(stateType).split("(").join("(\n").split(")").join(")\n"));
-
-        var e = macro state.board[i+1][5].piece.name[last];
-
-        var output : Array<String> = [];
-        function debugExpr(e : Expr) switch e.expr {
-            case EField(e1, name): 
-                output.push("Field: " + name);
-                debugExpr(e1);
-            case EArray(e1, e2):
-                output.push("Array: " + e2.toString());
-                debugExpr(e1);
-            case EConst(CIdent(s)):
-                output.push("Field: " + s);
-            case x:
-                output.push("UNKNOWN: " + x);
-        }
-        debugExpr(e);
-        output.reverse();
-        trace("\n" + output.join("\n")+ "\n================================");
-        */
 
         // Add a constructor if not defined
         var fields = Context.getBuildFields();

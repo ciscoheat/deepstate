@@ -29,7 +29,7 @@ private typedef ActionUpdateExpr = {
 enum MetaObjectType {
     Basic;
     Enum;
-    Recursive;
+    Recursive(type : String);
     Anonymous(fields: Map<String, MetaObjectType>);
     Instance(cls: String, fields: Map<String, MetaObjectType>);
     Array(type: MetaObjectType);
@@ -45,6 +45,9 @@ class DeepState<S : DeepState<S,T>, T> {
     @:noCompletion final _stateType : MetaObjectType;
 
     function new(currentState : T, stateType : MetaObjectType, middlewares : ImmutableArray<Middleware<S,T>> = null) {
+        if(currentState == null) throw "currentState is null";
+        else if(stateType == null) throw "stateType is null";
+
         this.state = currentState;
         this._stateType = stateType;
         this.middlewares = middlewares == null ? [] : middlewares;
@@ -59,21 +62,22 @@ class DeepState<S : DeepState<S,T>, T> {
 
     // Make a deep copy of a new state object.
     @:noCompletion function createAndReplace(currentState : T, path : ImmutableArray<Action.PathAccess>, newValue : Any) : T {
-        function error() { throw "Incorrect DeepState update: " + path + " (" + newValue + ")"; }
+        function error() { throw "Invalid DeepState update: " + path + " (" + newValue + ")"; }
 
         var iter = path.iterator();
         function createNew(currentObject : Any, curState : MetaObjectType) : Any {
+            //trace(currentObject + " - " + curState);
             if(!iter.hasNext()) return newValue
             else switch iter.next() {
                 case Field(name): switch curState {
-                    case Basic: error();
-                    case Enum: error();
-                    case Recursive: error();
                     case Anonymous(fields):
+                        //trace("Creating Anonymous");
                         var data = Reflect.copy(currentObject);
                         Reflect.setField(data, name, createNew(Reflect.field(currentObject, name), fields.get(name)));
                         return data;
+
                     case Instance(cls, fields):
+                        //trace("Creating Instance");
                         // Create a new class with data constructor
                         var data = new haxe.DynamicAccess<Dynamic>();
 
@@ -85,9 +89,20 @@ class DeepState<S : DeepState<S,T>, T> {
 
                         return Type.createInstance(Type.resolveClass(cls), [data]);
 
-                    case Array(type): error();
+                    case Recursive(type):
+                        throw "Deep recursive updates not supported. Update the topmost recursive field only in type " + type.substr(1);
+
+                    case _: error();
                 }
-                case Array(index): error();
+                case Array(index): switch curState {
+                    case Array(type):
+                        var newArray = (currentObject : Array<Dynamic>).copy();
+                        newArray[index] = createNew(newArray[index], type);
+                        return newArray;
+
+                    case _: error();
+                }
+
             }
             return null;
         }
@@ -335,7 +350,7 @@ class DeepState<S : DeepState<S,T>, T> {
             var realUpdates = [for(u in updates) {
                 var paths = [for(p in u.path) switch p {
                     case Field(name): macro ds.PathAccess.Field($v{name});
-                    case Array(e): e;
+                    case Array(e): macro ds.PathAccess.Array($e);
                 }];
 
                 macro {

@@ -26,7 +26,7 @@ typedef TestState = {
 
 enum Color<T> {
     Black(a : ImmutableArray<String>);
-    White(b : Date);
+    White(b : T);
 }
 
 typedef Chessboard = {
@@ -49,12 +49,7 @@ typedef RecursiveState = {
     final value : String;
 }
 
-class Recursive extends DeepState<Recursive, RecursiveState> {
-    public function new(state, middleware = null) super(state, middleware);
-
-    override function copy(newState : RecursiveState) 
-        return super.copy(newState);
-}
+class Recursive extends DeepState<Recursive, RecursiveState> {}
 
 ///////////////////////////////////////////////////////////
 
@@ -294,7 +289,14 @@ class DeepStateTests extends buddy.SingleSuite {
                 newState.state.timestamps.should.not.be(timestamps);
             });
 
-            it("should handle recursive typedefs", {
+            it("should throw on recursive typedefs", {
+                var rec = new Recursive({node: {node: {node: null, value: "3"}, value: "2"}, value: "1"});
+
+                rec.state.node.node.value.should.be("3");
+                (function() rec.update(rec.state.node.node.value, "4")).should.throwType(String);
+            });
+
+            it("should handle infinite assignment of recursive typedefs", {
                 var rec = new Recursive({node: null, value: null});
                 rec.should.not.be(null);
             });
@@ -380,14 +382,24 @@ class DeepStateTests extends buddy.SingleSuite {
                     CompilationShould.failFor(asset.changeFirstName(123));
                 });
 
-                /*
-                @include it("should handle array access for ImmutableArrays", {
+                it("should handle array access for ImmutableArrays", {
                     var next = asset.update(asset.state.person.tags[0].name, "Tagged", "ArrayUpdate");
                     next.state.person.tags.length.should.be(2);
                     next.state.person.tags[0].name.should.be("Tagged");
                     next.state.person.tags[1].name.should.be("IG");
                 });
-                */
+
+                it("should handle multi-dimensional array access for ImmutableArrays", {
+                    var chess = new Chess({
+                        board: [
+                            [{color: White(1), piece: "R"},{color: Black(["2"]), piece: "N"}],
+                            [{color: White(3), piece: "p"}]
+                        ],
+                        players: {black: "Kassman", white: "Aschberg"}
+                    });
+                    var next = chess.update(chess.state.board[1][0].piece, "Q");
+                    next.state.board[1][0].piece.should.be("Q");
+                });
             });
 
             describe("Class instantiation", {
