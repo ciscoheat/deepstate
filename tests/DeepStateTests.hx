@@ -194,7 +194,7 @@ class DeepStateTests extends buddy.SingleSuite {
                 newState.state.should.not.be(initialState);
             }
 
-            @include it("should update the whole state if specified", {
+            it("should update the whole state if specified", {
                 CompilationShould.failFor(
                     asset.state = nextState
                 );

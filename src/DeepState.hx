@@ -58,8 +58,40 @@ class DeepState<S : DeepState<S,T>, T> {
     }
 
     // Make a deep copy of a new state object.
-    @:noCompletion function createAndReplace(currentState : T, path : ImmutableArray<PathAccess>, newValue : Any) : T {
-        return null;
+    @:noCompletion function createAndReplace(currentState : T, path : ImmutableArray<Action.PathAccess>, newValue : Any) : T {
+        function error() { throw "Incorrect DeepState update: " + path + " (" + newValue + ")"; }
+
+        var iter = path.iterator();
+        function createNew(currentObject : Any, curState : MetaObjectType) : Any {
+            if(!iter.hasNext()) return newValue
+            else switch iter.next() {
+                case Field(name): switch curState {
+                    case Basic: error();
+                    case Enum: error();
+                    case Anonymous(fields):
+                        var data = Reflect.copy(currentObject);
+                        Reflect.setField(data, name, createNew(Reflect.field(currentObject, name), fields.get(name)));
+                        return data;
+                    case Instance(cls, fields):
+                        // Create a new class with data constructor
+                        var data = new haxe.DynamicAccess<Dynamic>();
+
+                        // If problems, use getProperty instead of field.
+                        for(f in fields.keys())
+                            data.set(f, Reflect.field(currentObject, f));
+
+                        data.set(name, createNew(Reflect.field(currentObject, name), fields.get(name)));
+
+                        return Type.createInstance(Type.resolveClass(cls), [data]);
+
+                    case Array(type): error();
+                }
+                case Array(index): error();
+            }
+            return null;
+        }
+
+        return createNew(currentState, _stateType);
     }
 
 /*
@@ -98,14 +130,28 @@ class DeepState<S : DeepState<S,T>, T> {
 */
 
     @:noCompletion public function updateState(action : Action) : S {
-        //for(u in action.updates) for(p in u.path) trace(p.field + (p.index != null ? ' [${p.index}]' : ''));
+        /*
+        for(u in action.updates) {
+            var path = [for(p in u.path) switch p {
+                case Field(name): name;
+                case Array(index): Std.string(index);
+            }].join(".");
+            trace('[${action.type}] ' + path + " => " + u.value);
+        }
+        */
 
         // Last function in middleware chain - create a new state.
         function copyAndUpdateState(action : Action) : S {
             var newState = this.state;
+            //trace("BEFORE ================== " + newState);
             for(a in action.updates) {
                 newState = createAndReplace(newState, a.path, a.value);
             }
+            /*
+            trace("AFTER ================== " + newState);
+            trace(newState);
+            trace("xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx");
+            */
             return this.copy(newState);
         }
 
@@ -155,9 +201,9 @@ class DeepState<S : DeepState<S,T>, T> {
                 case EArray(e1, e2):
                     paths.push(Array(e2));
                     parseUpdateExpr(e1);
-                case EConst(CIdent(s)):
-                    if(s == "state") filterPath = false 
-                    else if(filterPath) paths.push(Field(s));
+                case EConst(CIdent(name)):
+                    if(name == "state") filterPath = false 
+                    else if(filterPath) paths.push(Field(name));
                 case x:
                     Context.error("Invalid DeepState update expression.", e.pos);
             }
