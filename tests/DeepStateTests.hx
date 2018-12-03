@@ -22,6 +22,8 @@ typedef TestState = {
         final json : ImmutableJson;
 }
 
+///////////////////////////////////////////////////////////
+
 enum Color<T> {
     Black(a : ImmutableArray<String>);
     White(b : Date);
@@ -40,12 +42,21 @@ typedef Chessboard = {
 
 class Chess extends DeepState<Chess, Chessboard> {}
 
-/*
+///////////////////////////////////////////////////////////
+
 typedef RecursiveState = {
     final node : RecursiveState;
     final value : String;
 }
-*/
+
+class Recursive extends DeepState<Recursive, RecursiveState> {
+    public function new(state, middleware = null) super(state, middleware);
+
+    override function copy(newState : RecursiveState) 
+        return super.copy(newState);
+}
+
+///////////////////////////////////////////////////////////
 
 class Person implements DataClass {
     public final firstName : String;
@@ -102,12 +113,6 @@ class FBI extends DeepState<FBI, DataClassState> {
         }));
     }
 }
-
-/*
-class Recursive extends DeepState<Recursive, RecursiveState> {
-    public function new(state, middleware = null) super(state, middleware);
-}
-*/
 
 /////////////////////////////////////////////////////////////////////
 
@@ -289,22 +294,10 @@ class DeepStateTests extends buddy.SingleSuite {
                 newState.state.timestamps.should.not.be(timestamps);
             });
 
-            /*
-            it("should throw if a field key doesn't exist in the state tree", {
-                asset.update.bind(asset.state.test, updates: [{path: "some", value: "test"}]})
-                    .should.throwType(String);
-
-                asset.updateState.bind({type: "test", updates: [{path: "some.missing.field", value: 10}]})
-                    .should.throwType(String);
-            });
-            */
-
-            /*
             it("should handle recursive typedefs", {
                 var rec = new Recursive({node: null, value: null});
                 rec.should.not.be(null);
             });
-            */
 
             /////////////////////////////////////////////////////////
 

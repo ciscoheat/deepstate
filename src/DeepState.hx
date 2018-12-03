@@ -26,10 +26,10 @@ private typedef ActionUpdateExpr = {
 }
 #end
 
-
 enum MetaObjectType {
     Basic;
     Enum;
+    Recursive;
     Anonymous(fields: Map<String, MetaObjectType>);
     Instance(cls: String, fields: Map<String, MetaObjectType>);
     Array(type: MetaObjectType);
@@ -68,6 +68,7 @@ class DeepState<S : DeepState<S,T>, T> {
                 case Field(name): switch curState {
                     case Basic: error();
                     case Enum: error();
+                    case Recursive: error();
                     case Anonymous(fields):
                         var data = Reflect.copy(currentObject);
                         Reflect.setField(data, name, createNew(Reflect.field(currentObject, name), fields.get(name)));
@@ -93,41 +94,6 @@ class DeepState<S : DeepState<S,T>, T> {
 
         return createNew(currentState, _stateType);
     }
-
-/*
-            return switch update {
-                case Anonymous(currentObj, field):
-                    // Create a new anonymous structure
-                    var update = newFieldValue(currentObj, field);
-                    if(!currentObj.exists(update.field)) 
-                        throw 'Field not found in state: ${update.field}';
-
-                    var data = Reflect.copy(currentObj);
-                    Reflect.setField(data, update.field, update.value);
-                    data;
-
-                case Instance(metadata, currentObj, field):
-                    // Create a new class with data constructor
-                    var data = new haxe.DynamicAccess<Dynamic>();
-
-                    var update = newFieldValue(currentObj, field);
-                    if(!metadata.fields.has(update.field))
-                        throw 'Field not found in state: ${update.field}';
-
-                    // If problems, use getProperty instead of field.
-                    for(f in metadata.fields) 
-                        data.set(f, Reflect.field(currentObj, f));
-
-                    data.set(update.field, update.value);
-
-                    Type.createInstance(metadata.cls, [data]);
-
-                case Array(array, index, field):
-                    // Create a new object in an array
-                    var newArray = array.copy();
-                    newArray;
-            }
-*/
 
     @:noCompletion public function updateState(action : Action) : S {
         /*
