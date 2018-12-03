@@ -26,13 +26,16 @@ private typedef ActionUpdateExpr = {
 }
 #end
 
+/**
+ * Used for describing the state tree and its types.
+ */
 enum MetaObjectType {
     Basic;
     Enum;
     Recursive(type : String);
     Anonymous(fields: Map<String, MetaObjectType>);
     Instance(cls: String, fields: Map<String, MetaObjectType>);
-    Array(type: MetaObjectType);
+    Array(type: MetaObjectType); // Always an ImmutableArray
 }
 
 /////////////////////////////////////////////////////////////////////
@@ -40,16 +43,21 @@ enum MetaObjectType {
 @:autoBuild(ds.internal.DeepStateInfrastructure.build())
 class DeepState<S : DeepState<S,T>, T> {
     #if !macro
+
+    // All state types T created by the build macro
+    @:noCompletion public static var stateTypes : Map<String, MetaObjectType>
+        = cast haxe.Unserializer.run(haxe.rtti.Meta.getType(DeepState).stateTypes[0]);
+
+    // Automatically overridden in inherited classes by build macro
+    @:noCompletion function stateType() : MetaObjectType { return null; }
+
     public final state : T;
     final middlewares : ImmutableArray<Middleware<S,T>>;
-    @:noCompletion final _stateType : MetaObjectType;
 
-    function new(currentState : T, stateType : MetaObjectType, middlewares : ImmutableArray<Middleware<S,T>> = null) {
+    function new(currentState : T, middlewares : ImmutableArray<Middleware<S,T>> = null) {
         if(currentState == null) throw "currentState is null";
-        else if(stateType == null) throw "stateType is null";
 
         this.state = currentState;
-        this._stateType = stateType;
         this.middlewares = middlewares == null ? [] : middlewares;
     }
 
@@ -90,7 +98,8 @@ class DeepState<S : DeepState<S,T>, T> {
                         return Type.createInstance(Type.resolveClass(cls), [data]);
 
                     case Recursive(type):
-                        throw "Deep recursive updates not supported. Update the topmost recursive field only in type " + type.substr(1);
+                        //throw "Deep recursive updates not supported. Update the topmost recursive field only in type " + type.substr(1);
+                        return createNew(currentObject, stateTypes.get(type));
 
                     case _: error();
                 }
@@ -107,7 +116,7 @@ class DeepState<S : DeepState<S,T>, T> {
             return null;
         }
 
-        return createNew(currentState, _stateType);
+        return createNew(currentState, this.stateType());
     }
 
     @:noCompletion public function updateState(action : Action) : S {

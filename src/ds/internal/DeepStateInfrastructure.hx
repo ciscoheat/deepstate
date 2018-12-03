@@ -13,32 +13,86 @@ using haxe.macro.TypeTools;
 using haxe.macro.MacroStringTools;
 using haxe.macro.ExprTools;
 
+@:forward(keys)
+abstract RecursiveTypeCheck(Map<String, Null<MetaObjectType>>) {
+    inline public function new() 
+        this = new Map<String, Null<MetaObjectType>>();
+
+    public function get(t : {pack : Array<String>, name: String}) {
+        var typeName = key(t);
+        return this.get(typeName);
+    }
+
+    public function getStr(key : String) {
+        return this.get(key);
+    }
+
+    public function exists(t : {pack : Array<String>, name: String}) {
+        var typeName = key(t);
+        return this.exists(typeName);
+    }
+
+    public function mark(t : {pack : Array<String>, name: String}) {
+        var typeName = key(t);
+        if(this.exists(typeName)) throw "Checked type exists: " + typeName;
+
+        this.set(typeName, null);
+    }
+
+    public function set(t : {pack : Array<String>, name: String}, type : MetaObjectType) {
+        var typeName = key(t);
+        if(type == null) throw "MetaObjectType is null.";
+        if(this.exists(typeName) && this.get(typeName) != null) throw "Checked type wasn't null: " + typeName;
+
+        this.set(typeName, type);
+        return type;
+    }
+
+    public function key(t : {pack : Array<String>, name: String}) {
+        return t.pack.toDotPath(t.name);
+    }
+
+    public function map() return this;
+}
+
 /**
  * A macro build class for checking that the state type is final,
  * and creating a path => type statec structure for quick access.
  */
 class DeepStateInfrastructure {
+    static var checkedTypes : RecursiveTypeCheck;
+
     static public function build() {
 
-        var _checkedTypes = new Map<String, String>();
+        if(checkedTypes == null) {
+            checkedTypes = new RecursiveTypeCheck();
+            Context.onGenerate(types -> {
+                for(t in types) switch t {
+                    case TInst(t, params):
+                        var inst = t.get();
+                        if(inst.pack.length == 0 && inst.name == "DeepState") {
+                            var serialized = haxe.Serializer.run(checkedTypes.map());
+                            inst.meta.add("stateTypes", [macro $v{serialized}], Context.currentPos());
+                        }
+                    case _:
+                }
+            });
+        }
+
         function stateFieldType(type : Type, count = 0) : MetaObjectType {
 
-            function checkType(t : {pack : Array<String>, module: String, name: String}) {
-                var typeName = t.pack.join(".") + "." + t.module + "." + t.name;
-                return _checkedTypes.get(typeName);
-            }
-
-            function setCheckType(t : {pack : Array<String>, module: String, name: String}) {
-                var typeName = t.pack.join(".") + "." + t.module + "." + t.name;
-                _checkedTypes.set(typeName, typeName);
-            }
-
-            if(count > 100)
+            if(count > 30)
                 Context.error("Recursive type follow for " + type, Context.currentPos());
 
             return switch type {
                 case TEnum(t, params):
-                    Enum;
+                    var enumType = t.get();
+                    if(checkedTypes.exists(enumType)) 
+                        Recursive(checkedTypes.key(enumType))
+                    else {
+                        checkedTypes.mark(enumType);
+                        Enum;
+                    }
 
                 case TAnonymous(a):
                     var fields = new Map<String, MetaObjectType>();
@@ -58,9 +112,10 @@ class DeepStateInfrastructure {
                     else if(type.pack.length == 0 && type.name == "Array")
                         Context.error('Field is a mutable Array, cannot be used in DeepState. Use ds.ImmutableArray instead.', Context.currentPos());
                     else {
-                        if(checkType(type) != null) Recursive(checkType(type))
+                        if(checkedTypes.exists(type)) 
+                            Recursive(checkedTypes.key(type))
                         else {
-                            setCheckType(type);
+                            checkedTypes.mark(type);
 
                             var fields = new Map<String, MetaObjectType>();
                             for(field in type.fields.get()) switch field.kind {
@@ -74,7 +129,7 @@ class DeepStateInfrastructure {
                             
                             var clsName = haxe.macro.MacroStringTools.toDotPath(type.pack, type.name);
                             //trace("TInst: " + clsName);
-                            Instance(clsName, fields);
+                            checkedTypes.set(type, Instance(clsName, fields));
                         }
                     }
 
@@ -110,12 +165,13 @@ class DeepStateInfrastructure {
                 case TType(t, params):
                     var typede = t.get();
                     //trace("TType: " + typede.name);
-                    return if(checkType(typede) != null) {
-                        Recursive(checkType(typede));
+                    return if(checkedTypes.exists(typede)) {
+                        Recursive(checkedTypes.key(typede));
                     }
                     else {
-                        setCheckType(typede);
-                        stateFieldType(typede.type, count+1);
+                        checkedTypes.mark(typede);
+                        var recType = stateFieldType(typede.type, count+1);
+                        checkedTypes.set(typede, recType);
                     }
 
                 case TLazy(f):
@@ -129,27 +185,20 @@ class DeepStateInfrastructure {
         /////////////////////////////////////////////////////////////
 
         var cls = Context.getLocalClass().get();
-        var stateType = stateFieldType(cls.superClass.params[1]);
-
-        function toExpr(t : MetaObjectType) : Expr {
-            function mapToExpr(map : Map<String, MetaObjectType>) : Expr {
-                return {
-                    expr: EArrayDecl([for(key in map.keys()) {
-                        expr: EBinop(OpArrow, macro $v{key}, toExpr(map[key])),
-                        pos: Context.currentPos()
-                    }]),
-                    pos: Context.currentPos()
-                }
-            }
-
-            return switch t {
-                case Basic: macro DeepState.MetaObjectType.Basic;
-                case Enum: macro DeepState.MetaObjectType.Enum;
-                case Recursive(type): macro DeepState.MetaObjectType.Recursive($v{type});
-                case Anonymous(fields): macro DeepState.MetaObjectType.Anonymous(${mapToExpr(fields)});
-                case Instance(cls, fields): macro DeepState.MetaObjectType.Instance($v{cls}, ${mapToExpr(fields)});
-                case Array(type): macro DeepState.MetaObjectType.Array(${toExpr(type)});
-            }
+        var stateType = cls.superClass.params[1];
+        var stateTypeMeta = stateFieldType(stateType);
+        var stateTypeName = switch stateType {
+            case TType(t, _):
+                var t = t.get();
+                t.pack.toDotPath(t.name);
+            case TInst(t, _):
+                var t = t.get();
+                t.pack.toDotPath(t.name);
+            case TEnum(t, _):
+                var t = t.get();
+                t.pack.toDotPath(t.name);
+            case x:
+                Context.error("Invalid state type: " + x, Context.currentPos());
         }
 
         // Add a constructor if not defined
@@ -162,7 +211,7 @@ class DeepStateInfrastructure {
                         {name: 'currentState', type: null},
                         {name: 'middlewares', type: null, opt: true}
                     ],
-                    expr: macro super(currentState, stateType, middlewares),
+                    expr: macro super(currentState, middlewares),
                     ret: null
                 }),
                 name: "new",
@@ -178,12 +227,27 @@ class DeepStateInfrastructure {
 
         // Add the stateType map
         fields.push({
-            access: [AFinal, AStatic],
-            doc: "Internal variable for accessing the state.",
-            kind: FieldType.FVar(null, toExpr(stateType)),
+            access: [AOverride],
+            doc: "Internal function for accessing the state type.",
+            kind: FieldType.FFun({ 
+                args: [],
+                expr: macro return DeepState.stateTypes.get($v{stateTypeName}),
+                ret: macro : DeepState.MetaObjectType
+            }),
             name: "stateType",
+            meta: [{
+                name: ":noCompletion", params: null, pos: Context.currentPos()
+            }],
             pos: Context.currentPos()
         });
+
+        /*
+        trace(cls.name + " ==================");
+        for(key in checkedTypes.keys()) {
+            trace(key + " => " + Std.string(checkedTypes.getStr(key)).substr(0, 10));
+
+        }
+        */
 
         return fields;
     }
