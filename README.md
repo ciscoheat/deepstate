@@ -265,7 +265,7 @@ The library [DataClass](https://github.com/ciscoheat/dataclass) is a nice supple
 
 ## Roadmap
 
-The project has just started, so assume API changes. The aim is to support at least the following:
+The API is getting stable, but there could be minor changes. The aim is to support at least the following:
 
 - [x] Middleware
 - [x] Observable state
