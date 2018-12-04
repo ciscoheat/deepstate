@@ -38,11 +38,11 @@ Can we manage with only those three concepts? **Immutable program state, actions
 
 ## Getting started
 
-You need Haxe 4 because of its support for immutable (final) data, so first go to [the download page](https://haxe.org/download/) and install the latest preview version or a nightly build.
+You need Haxe 4 because of its support for immutable (final) data, so go to [the download page](https://haxe.org/download/) and install the a preview version or a nightly build.
 
 Then install the lib:
 
-`haxelib git deepstate https://github.com/ciscoheat/deepstate.git`
+`haxelib install deepstate`
 
 And create a test file called **Main.hx**:
 
@@ -122,7 +122,7 @@ Run the test with: `haxe -x Main -lib deepstate`
 
 Lets make the famous Redux time machine then! Middleware is a function that takes three arguments:
 
-1. **asset:** The asset `S`, before any middleware was/is applied
+1. **asset:** The current asset `S`, always before any middleware was/is applied
 1. **next:** A `next` function that will pass an `Action` to the next middleware
 1. **action:** The current `Action`, that can be passed to `next` if no changes should be applied.
 
@@ -145,7 +145,7 @@ class MiddlewareLog<S : DeepState<S,T>, T> {
         var newState = next(action);
 
         // Log it and return it unchanged
-        logs.push({state: newState.state, type: action.type, timestamp: Date.now()});
+        logs.push({state: newState.state, type: action.type, timestamp: Date.now()});        
         return newState;
     }
 }
@@ -158,7 +158,7 @@ var logger = new MiddlewareLog<CIA, State>();
 var asset = new CIA(initialState, [logger.log]);
 ```
 
-To restore a previous state, at the moment you need to expose some revert method in the asset:
+To restore a previous state, a simple way is to expose some revert method in the asset:
 
 ```haxe
 class CIA extends DeepState<CIA, GameState> {
@@ -169,8 +169,6 @@ class CIA extends DeepState<CIA, GameState> {
 // Now you can turn back time:
 var next = asset.revert(logger.logs[0].state);
 ```
-
-Hopefully some standardized solution for this can be figured out. Open an issue if you have any ideas!
 
 ## Async operations
 
