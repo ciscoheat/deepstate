@@ -1,5 +1,4 @@
 import ds.Action;
-import DeepState.DeepStateConstructor;
 
 // This is your program state, where all fields must be final.
 typedef State = {
@@ -89,7 +88,7 @@ class Main {
     }
 }
 
-class MiddlewareLog<S : DeepState<S,T> & DeepStateConstructor<S,T>, T> {
+class MiddlewareLog<S : DeepState<S,T>, T> {
     public function new() {}
 
     public final logs = new Array<{state: T, type: String, timestamp: Date}>();

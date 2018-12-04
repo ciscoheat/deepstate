@@ -132,11 +132,10 @@ Here's a logger that will save all state changes, which is just a quick solution
 
 ```haxe
 import ds.Action;
-import DeepState.DeepStateConstructor;
 
-// Apologies for the long type constraint, use Dynamic instead of S
-// if you don't need specific type access, then it's not needed.
-class MiddlewareLog<S : DeepState<S,T> & DeepStateConstructor<S,T>, T> {
+// Use Dynamic instead of S if you don't need specific type access, 
+// then you don't need the type constraint.
+class MiddlewareLog<S : DeepState<S,T>, T> {
     public function new() {}
 
     public final logs = new Array<{state: T, type: String, timestamp: Date}>();
@@ -195,7 +194,7 @@ public function changeName(firstName : String, lastName : String) {
 
 The above functionality will get you far, you could for example create a middleware for your favorite web framework, redrawing or updating its components when the state updates. By popular request, an observable middleware has been added, making it easy to subscribe to state updates.
 
-Create an `ds.Observable<S, T>` object to subscribe to changes:
+Create an `ds.Observable<S, T>` to subscribe to changes, or inherit your asset from `DeepState.ObservableDeepState<S, T>`:
 
 ```haxe
 var observable = new ds.Observable<CIA, State>();
@@ -215,6 +214,14 @@ observable.subscribe(
 // Later, time to unsubscribe
 if(!subscriber.closed)
     subscriber.unsubscribe();
+```
+
+```haxe
+// Using the converience class
+class HSBC extends DeepState.ObservableDeepState<HSBC, State> {}
+
+var asset = new HSBC(someInitialState);
+asset.observable.subscribe(asset.state.player, player -> trace("Player updated."));
 ```
 
 If you want to observe the state immediately upon subscription, which can be useful to populate objects, you can pass a state `T` as a final argument to `subscribe`.

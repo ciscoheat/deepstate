@@ -3,14 +3,16 @@
 	"license": "MIT",
 	"tags": [
 		"state",
-		"redux"
+		"redux",
+		"immutable",
+		"cross"
 	],
 	"classPath": "src",
-	"description": "A simple and useful immutable state container for Haxe 4",
+	"description": "An immutable state container for Haxe 4 that cuts to the chase.",
 	"contributors": [
 		"ciscoheat"
 	],
-	"releasenote": "Asset is now completely immutable, observers moved to middleware.",
-	"version": "0.5.0",
+	"releasenote": "Now handles array access and recursive types.",
+	"version": "0.6.0",
 	"url": "http://github.com/ciscoheat/deepstate/"
 }
