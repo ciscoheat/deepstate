@@ -12,7 +12,7 @@
 	"contributors": [
 		"ciscoheat"
 	],
-	"releasenote": "A 'defaultState' function added to each asset class.",
-	"version": "0.7.0",
+	"releasenote": "Haxe 4-preview4 compatibility fix.",
+	"version": "0.7.1",
 	"url": "http://github.com/ciscoheat/deepstate/"
 }

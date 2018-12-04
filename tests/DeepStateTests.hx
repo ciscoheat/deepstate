@@ -20,7 +20,7 @@ typedef TestState = {
         final stuff : ImmutableMap<String, Bool>;
     }
     final timestamps : ImmutableArray<Date>;
-        final json : ImmutableJson;
+    final json : ImmutableJson;
 }
 
 ///////////////////////////////////////////////////////////

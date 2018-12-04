@@ -76,12 +76,12 @@ class DeepStateInfrastructure {
 
                                 var fields = new Map<String, MetaObjectType>();
                                 for(field in type.fields.get()) switch field.kind {
-                                    case FVar(read, write):
-                                        if(field.isFinal)
+                                    case FVar(_, write):
+                                        if(write == AccNever || write == AccCtor)
                                             fields.set(field.name, stateFieldType(field.type));
                                         else
                                             Context.error('Field is not final, cannot be used in DeepState.', field.pos);
-                                    case FMethod(_):
+                                    case _:
                                 }
                                 
                                 var clsName = haxe.macro.MacroStringTools.toDotPath(type.pack, type.name);
@@ -228,7 +228,7 @@ class DeepStateInfrastructure {
                 case Float: macro 0.0;
                 case Date: macro Date.now();
                 case ImmutableJson: macro new haxe.DynamicAccess<Dynamic>();
-                //case ImmutableMap: macro [];
+                //case ImmutableMap: macro []; // RC5 feature
                 case Array(_): macro [];
                 case Recursive(_): macro null;
                 case Anonymous(fields): mapToAnon(fields);
