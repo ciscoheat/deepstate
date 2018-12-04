@@ -37,10 +37,7 @@ class DeepStateInfrastructure {
             });
         }
 
-        function stateFieldType(type : Type, count = 0) : MetaObjectType {
-
-            if(count > 30)
-                Context.error("Recursive type follow for " + type, Context.currentPos());
+        function stateFieldType(type : Type) : MetaObjectType {
 
             return switch type {
                 case TEnum(t, params):
@@ -56,7 +53,7 @@ class DeepStateInfrastructure {
                     var fields = new Map<String, MetaObjectType>();
                     for(field in a.get().fields) switch field.kind {
                         case FVar(read, write) if(write == AccNever || write == AccCtor):
-                            fields.set(field.name, stateFieldType(field.type, count+1));
+                            fields.set(field.name, stateFieldType(field.type));
                         case _:
                             Context.error('Field is not final, cannot be used in DeepState.', field.pos);
                     }
@@ -65,10 +62,17 @@ class DeepStateInfrastructure {
 
                 case TInst(t, _):
                     var type = t.get();
-                    if(type.pack.length == 0 && type.name == "String") Basic
-                    else if(type.pack.length == 0 && type.name == "Date") Basic
+                    
+                    if(type.pack.length == 0 && type.name == "String") 
+                        Basic
+                    else if(type.pack.length == 0 && type.name == "Date") 
+                        Basic
                     else if(type.pack.length == 0 && type.name == "Array")
-                        Context.error('Field is a mutable Array, cannot be used in DeepState. Use ds.ImmutableArray instead.', Context.currentPos());
+                        Context.error('State contains a mutable Array. Use ds.ImmutableArray instead.', Context.currentPos());
+                    else if(type.pack.length == 0 && type.name == "List")
+                        Context.error('State contains a mutable List. Use ds.ImmutableList instead.', Context.currentPos());
+                    else if(type.pack.length == 1 && type.pack[0] == "haxe" && type.name == "IMap")
+                        Context.error('State contains a mutable Map. Use ds.ImmutableMap instead.', Context.currentPos());
                     else {
                         if(checkedTypes.exists(type)) 
                             Recursive(checkedTypes.key(type))
@@ -79,7 +83,7 @@ class DeepStateInfrastructure {
                             for(field in type.fields.get()) switch field.kind {
                                 case FVar(read, write):
                                     if(field.isFinal)
-                                        fields.set(field.name, stateFieldType(field.type, count+1));
+                                        fields.set(field.name, stateFieldType(field.type));
                                     else
                                         Context.error('Field is not final, cannot be used in DeepState.', field.pos);
                                 case FMethod(_):
@@ -113,11 +117,11 @@ class DeepStateInfrastructure {
                     }
                     else if(abstractType.pack[0] == "ds" && abstractType.name == "ImmutableArray") {
                         //trace("Array: " + params[0]);
-                        Array(stateFieldType(params[0], count+1));
+                        Array(stateFieldType(params[0]));
                     }
                     else {
                         //trace("TAbstract: " + abstractType.type);
-                        stateFieldType(Context.followWithAbstracts(abstractType.type), count+1);
+                        stateFieldType(Context.followWithAbstracts(abstractType.type));
                     }
 
                 case TType(t, params):
@@ -128,12 +132,12 @@ class DeepStateInfrastructure {
                     }
                     else {
                         checkedTypes.mark(typede);
-                        var recType = stateFieldType(typede.type, count+1);
+                        var recType = stateFieldType(typede.type);
                         checkedTypes.set(typede, recType);
                     }
 
                 case TLazy(f):
-                    stateFieldType(f(), count+1);
+                    stateFieldType(f());
 
                 case x:
                     Context.error('Unsupported DeepState type: $x', Context.currentPos());

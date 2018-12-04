@@ -17,7 +17,8 @@ typedef TestState = {
         final tags : ImmutableArray<{
             final name : String;
         }>;
-        }
+        final stuff : ImmutableMap<String, Bool>;
+    }
     final timestamps : ImmutableArray<Date>;
         final json : ImmutableJson;
 }
@@ -154,7 +155,8 @@ class DeepStateTests extends buddy.SingleSuite {
             score: 0,
             person: {
                 name: { firstName: "Wall", lastName: "Enberg" },
-                tags: [{name: "Boliden"}, {name: "IG"}]
+                tags: [{name: "Boliden"}, {name: "IG"}],
+                stuff: new Map<String, Bool>()
             },
             timestamps: [],
             json: { 
@@ -168,7 +170,8 @@ class DeepStateTests extends buddy.SingleSuite {
             score: 1, 
             person: {
                 name: { firstName: "Montagu", lastName: "Norman" },
-                tags: [{name: "Ring"}]
+                tags: [{name: "Ring"}],
+                stuff: new Map<String, Bool>()
             },
             timestamps: [Date.now()],
             json: { name: "Meitner", place: "Ljungaverk", year: 1945 }
