@@ -42,7 +42,6 @@ typedef Chessboard = {
 }
 
 class Chess extends DeepState<Chess, Chessboard> {}
-
 class ObservableChess extends DeepState.ObservableDeepState<ObservableChess, Chessboard> {}
 
 ///////////////////////////////////////////////////////////
@@ -53,6 +52,22 @@ typedef RecursiveState = {
 }
 
 class Recursive extends DeepState<Recursive, RecursiveState> {}
+
+///////////////////////////////////////////////////////////
+
+typedef DefaultState = {
+    final score : Int;
+    final person : {
+        final name : {
+            final firstName : String;
+            final lastName : String;
+        }
+    }
+    final date : Date;
+    final floats : ImmutableArray<Float>;
+}
+
+class DefaultAsset extends DeepState<DefaultAsset, DefaultState> {}
 
 ///////////////////////////////////////////////////////////
 
@@ -300,6 +315,20 @@ class DeepStateTests extends buddy.SingleSuite {
                 rec.state.node.node.value.should.be("3");
                 var next = rec.update(rec.state.node.node.value, "A", "DeepRecursiveUpdate");
                 next.state.node.value.should.be("A");
+            });
+
+            it("has a 'defaultState' method for creating an asset", {
+                CIA.defaultState.bind().should.throwType(String);
+
+                var def = DefaultAsset.defaultState();
+                var asset = new DefaultAsset(def);
+
+                asset.state.score.should.be(0);
+                asset.state.person.name.firstName.should.be("");
+                asset.state.person.name.lastName.should.be("");
+                asset.state.date.should.not.be(null);
+                asset.state.date.getFullYear().should.beGreaterThan(2017);
+                asset.state.floats.length.should.be(0);
             });
 
             /////////////////////////////////////////////////////////

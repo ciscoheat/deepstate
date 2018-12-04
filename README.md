@@ -190,6 +190,31 @@ public function changeName(firstName : String, lastName : String) {
 }
 ```
 
+## Default state
+
+Every `DeepState` class has a static `defaultState` method, that you can use to quickly create a default asset:
+
+```haxe
+var defaultState = CIA.defaultState();
+var asset = new CIA(defaultState);
+```
+
+Here's a list of supported default values. If not supported, the `defaultState` method will throw an exception.
+
+| Type              | Default value                                           |
+| ----------------- | ------------------------------------------------------- |
+| Bool              | false                                                   |
+| String            | ""                                                      |
+| Int               | 0                                                       |
+| Int64             | haxe.Int64.make(0,0)                                    |
+| Float             | 0.0                                                     |
+| Date              | Date.now()                                              |
+| ImmutableJson     | new haxe.DynamicAccess<Dynamic>()                       |
+| ImmutableArray    | []                                                      |
+| Recursive         | null                                                    |
+| Anonymous         | The above values for every field.                       |
+| Instance          | Not supported, set default values in the class instead. |
+
 ## Observable
 
 The above functionality will get you far, you could for example create a middleware for your favorite web framework, redrawing or updating its components when the state updates. By popular request, an observable middleware has been added, making it easy to subscribe to state updates.
@@ -246,7 +271,7 @@ The project has just started, so assume API changes. The aim is to support at le
 - [x] Observable state
 - [x] Support for DataClass
 - [x] Making the asset itself immutable, instead of treating it as a state container
-- [ ] Default state initialization
+- [x] Default state initialization
 - [ ] Support for objects with a Map-like interface
 - [ ] Your choice! Create an issue to join in.
 

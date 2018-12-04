@@ -21,7 +21,6 @@ class DeepStateInfrastructure {
     static var checkedTypes : RecursiveTypeCheck;
 
     static public function build() {
-
         if(checkedTypes == null) {
             checkedTypes = new RecursiveTypeCheck();
             Context.onGenerate(types -> {
@@ -38,7 +37,6 @@ class DeepStateInfrastructure {
         }
 
         function stateFieldType(type : Type) : MetaObjectType {
-
             return switch type {
                 case TEnum(t, params):
                     var enumType = t.get();
@@ -62,66 +60,52 @@ class DeepStateInfrastructure {
 
                 case TInst(t, _):
                     var type = t.get();
-                    
-                    if(type.pack.length == 0 && type.name == "String") 
-                        Basic
-                    else if(type.pack.length == 0 && type.name == "Date") 
-                        Basic
-                    else if(type.pack.length == 0 && type.name == "Array")
-                        Context.error('State contains a mutable Array. Use ds.ImmutableArray instead.', Context.currentPos());
-                    else if(type.pack.length == 0 && type.name == "List")
-                        Context.error('State contains a mutable List. Use ds.ImmutableList instead.', Context.currentPos());
-                    else if(type.pack.length == 1 && type.pack[0] == "haxe" && type.name == "IMap")
-                        Context.error('State contains a mutable Map. Use ds.ImmutableMap instead.', Context.currentPos());
-                    else {
-                        if(checkedTypes.exists(type)) 
-                            Recursive(checkedTypes.key(type))
-                        else {
-                            checkedTypes.mark(type);
 
-                            var fields = new Map<String, MetaObjectType>();
-                            for(field in type.fields.get()) switch field.kind {
-                                case FVar(read, write):
-                                    if(field.isFinal)
-                                        fields.set(field.name, stateFieldType(field.type));
-                                    else
-                                        Context.error('Field is not final, cannot be used in DeepState.', field.pos);
-                                case FMethod(_):
+                    switch [type.pack, type.name] {
+                        case [[], "String"]: String;
+                        case [[], "Date"]: Date;
+                        case [[], "Array"] | [[], "List"]:
+                            Context.error('State contains a mutable ${type.name}. Use ds.Immutable${type.name} instead.', Context.currentPos());
+                        case [["haxe"], "IMap"]: 
+                            Context.error('State contains a mutable Map. Use ds.ImmutableMap instead.', Context.currentPos());
+                        case _:
+                            if(checkedTypes.exists(type)) 
+                                Recursive(checkedTypes.key(type))
+                            else {
+                                checkedTypes.mark(type);
+
+                                var fields = new Map<String, MetaObjectType>();
+                                for(field in type.fields.get()) switch field.kind {
+                                    case FVar(read, write):
+                                        if(field.isFinal)
+                                            fields.set(field.name, stateFieldType(field.type));
+                                        else
+                                            Context.error('Field is not final, cannot be used in DeepState.', field.pos);
+                                    case FMethod(_):
+                                }
+                                
+                                var clsName = haxe.macro.MacroStringTools.toDotPath(type.pack, type.name);
+                                //trace("TInst: " + clsName);
+                                checkedTypes.set(type, Instance(clsName, fields));
                             }
-                            
-                            var clsName = haxe.macro.MacroStringTools.toDotPath(type.pack, type.name);
-                            //trace("TInst: " + clsName);
-                            checkedTypes.set(type, Instance(clsName, fields));
                         }
-                    }
 
                 case TAbstract(t, params):
                     var abstractType = t.get();
 
-                    if(abstractType.pack.length == 0 && ( 
-                        abstractType.name == "Bool" || 
-                        abstractType.name == "Float" ||
-                        abstractType.name == "Int"
-                    )) { 
-                        Basic;
-                    }
-                    else if(abstractType.pack[0] == "haxe" && abstractType.name == "Int64") 
-                        Basic
-                    else if(abstractType.pack[0] == "ds" && abstractType.name == "ImmutableJson")
-                        Basic
-                    else if(abstractType.pack[0] == "ds" && (
-                        abstractType.name == "ImmutableList" ||
-                        abstractType.name == "ImmutableMap"
-                    )) {
-                        Basic;
-                    }
-                    else if(abstractType.pack[0] == "ds" && abstractType.name == "ImmutableArray") {
-                        //trace("Array: " + params[0]);
-                        Array(stateFieldType(params[0]));
-                    }
-                    else {
-                        //trace("TAbstract: " + abstractType.type);
-                        stateFieldType(Context.followWithAbstracts(abstractType.type));
+                    switch [abstractType.pack, abstractType.name] { 
+                        case [[], "Bool"]: Bool;
+                        case [[], "Float"]: Float;
+                        case [[], "Int"]: Int;
+                        case [["haxe"], "Int32"]: Int32;
+                        case [["haxe"], "Int64"]: Int64;
+                        case [["ds"], "ImmutableJson"]: ImmutableJson;
+                        case [["ds"], "ImmutableList"]: ImmutableList;
+                        case [["ds"], "ImmutableMap"]: ImmutableMap;
+                        case [["ds"], "ImmutableArray"]: Array(stateFieldType(params[0]));
+                        case _:
+                            //trace("TAbstract: " + abstractType.type);
+                            stateFieldType(Context.followWithAbstracts(abstractType.type));
                     }
 
                 case TType(t, params):
@@ -147,6 +131,10 @@ class DeepStateInfrastructure {
         /////////////////////////////////////////////////////////////
 
         var cls = Context.getLocalClass().get();
+
+        // Skip ObservableDeepState, it's considered an abstract base class.
+        if(cls.name == "ObservableDeepState") return (null : Array<Field>);
+
         var stateType = cls.superClass.params[1];
         var stateTypeMeta = stateFieldType(stateType);
         var stateTypeName = switch stateType {
@@ -161,7 +149,7 @@ class DeepStateInfrastructure {
                 t.pack.toDotPath(t.name);
             case x:
                 Context.error("Invalid state type: " + x, Context.currentPos());
-        }
+        }        
 
         // Add a constructor if not defined
         var fields = Context.getBuildFields();
@@ -175,7 +163,7 @@ class DeepStateInfrastructure {
                             {name: 'middlewares', type: null, opt: true},
                             {name: 'observable', type: null, opt: true}
                         ],
-                        expr: macro super(currentState, middlewares),
+                        expr: macro super(currentState, middlewares, observable),
                         ret: null
                     }),
                     name: "new",
@@ -203,7 +191,6 @@ class DeepStateInfrastructure {
             );
         }
 
-        // Add the stateType map
         fields.push({
             access: [AOverride],
             doc: "Internal function for accessing the state type.",
@@ -213,6 +200,54 @@ class DeepStateInfrastructure {
                 ret: macro : DeepState.MetaObjectType
             }),
             name: "stateType",
+            meta: [{
+                name: ":noCompletion", params: null, pos: Context.currentPos()
+            }],
+            pos: Context.currentPos()
+        });
+
+        ///// Add a default function /////
+
+        function defaultState(meta : MetaObjectType) : Expr {
+            function mapToAnon(fields : Map<String, MetaObjectType>) {
+                var values = [for(key in fields.keys()) {
+                    field: key,
+                    expr: defaultState(fields[key])
+                }];
+                return {
+                    expr: EObjectDecl(values),
+                    pos: Context.currentPos()
+                }
+            }
+
+            return switch meta {
+                case Bool: macro false;
+                case String: macro "";
+                case Int: macro 0;
+                case Int64: macro haxe.Int64.make(0,0);
+                case Float: macro 0.0;
+                case Date: macro Date.now();
+                case ImmutableJson: macro new haxe.DynamicAccess<Dynamic>();
+                //case ImmutableMap: macro [];
+                case Array(_): macro [];
+                case Recursive(_): macro null;
+                case Anonymous(fields): mapToAnon(fields);
+                case Instance(cls, _):
+                    macro throw "Non-supported default value: " + $v{cls};
+                case _:
+                    macro throw "Non-supported default value: " + $v{Std.string(meta)};
+            }
+        }
+
+        fields.push({
+            access: [AStatic, APublic],
+            doc: "Returns a default state, that can be used to create a new asset. Will throw if some values cannot be created.",
+            kind: FieldType.FFun({ 
+                args: [],
+                expr: macro return ${defaultState(stateTypeMeta)},
+                ret: Context.toComplexType(stateType)
+            }),
+            name: "defaultState",
             meta: [{
                 name: ":noCompletion", params: null, pos: Context.currentPos()
             }],

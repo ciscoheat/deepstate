@@ -12,7 +12,7 @@
 	"contributors": [
 		"ciscoheat"
 	],
-	"releasenote": "Now handles array access and recursive types.",
-	"version": "0.6.0",
+	"releasenote": "A 'defaultState' function added to each asset class.",
+	"version": "0.7.0",
 	"url": "http://github.com/ciscoheat/deepstate/"
 }

@@ -28,8 +28,17 @@ private typedef ActionUpdateExpr = {
  * Used for describing the state tree and its types.
  */
 enum MetaObjectType {
-    Basic;
+    Bool;
+    String;
+    Int;
+    Int32;
+    Int64;
+    Float;
+    Date;
     Enum;
+    ImmutableMap;
+    ImmutableList;
+    ImmutableJson;
     Recursive(type : String);
     Anonymous(fields: Map<String, MetaObjectType>);
     Instance(cls: String, fields: Map<String, MetaObjectType>);
@@ -349,7 +358,7 @@ class ObservableDeepState<S : ObservableDeepState<S,T>, T> extends DeepState<S,T
             observable = new Observable<S, T>();
             if(middlewares == null) middlewares = [observable.observe];
             else middlewares = middlewares.push(observable.observe);
-        }        
+        }
         this.observable = observable;
         super(currentState, middlewares);
     }
