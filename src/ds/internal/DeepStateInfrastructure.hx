@@ -13,48 +13,6 @@ using haxe.macro.TypeTools;
 using haxe.macro.MacroStringTools;
 using haxe.macro.ExprTools;
 
-@:forward(keys)
-abstract RecursiveTypeCheck(Map<String, Null<MetaObjectType>>) {
-    inline public function new() 
-        this = new Map<String, Null<MetaObjectType>>();
-
-    public function get(t : {pack : Array<String>, name: String}) {
-        var typeName = key(t);
-        return this.get(typeName);
-    }
-
-    public function getStr(key : String) {
-        return this.get(key);
-    }
-
-    public function exists(t : {pack : Array<String>, name: String}) {
-        var typeName = key(t);
-        return this.exists(typeName);
-    }
-
-    public function mark(t : {pack : Array<String>, name: String}) {
-        var typeName = key(t);
-        if(this.exists(typeName)) throw "Checked type exists: " + typeName;
-
-        this.set(typeName, null);
-    }
-
-    public function set(t : {pack : Array<String>, name: String}, type : MetaObjectType) {
-        var typeName = key(t);
-        if(type == null) throw "MetaObjectType is null.";
-        if(this.exists(typeName) && this.get(typeName) != null) throw "Checked type wasn't null: " + typeName;
-
-        this.set(typeName, type);
-        return type;
-    }
-
-    public function key(t : {pack : Array<String>, name: String}) {
-        return t.pack.toDotPath(t.name);
-    }
-
-    public function map() return this;
-}
-
 /**
  * A macro build class for checking that the state type is final,
  * and creating a path => type statec structure for quick access.
@@ -204,19 +162,35 @@ class DeepStateInfrastructure {
         // Add a constructor if not defined
         var fields = Context.getBuildFields();
         if(!fields.exists(f -> f.name == "new")) {
-            fields.push({
-                access: [APublic],
-                kind: FFun({
-                    args: [
-                        {name: 'currentState', type: null},
-                        {name: 'middlewares', type: null, opt: true}
-                    ],
-                    expr: macro super(currentState, middlewares),
-                    ret: null
-                }),
-                name: "new",
-                pos: Context.currentPos()
-            });
+            if(cls.superClass.t.get().name == "ObservableDeepState")
+                fields.push({
+                    access: [APublic],
+                    kind: FFun({
+                        args: [
+                            {name: 'currentState', type: null},
+                            {name: 'middlewares', type: null, opt: true},
+                            {name: 'observable', type: null, opt: true}
+                        ],
+                        expr: macro super(currentState, middlewares),
+                        ret: null
+                    }),
+                    name: "new",
+                    pos: Context.currentPos()
+                })
+            else // Normal DeepState
+                fields.push({
+                    access: [APublic],
+                    kind: FFun({
+                        args: [
+                            {name: 'currentState', type: null},
+                            {name: 'middlewares', type: null, opt: true}
+                        ],
+                        expr: macro super(currentState, middlewares),
+                        ret: null
+                    }),
+                    name: "new",
+                    pos: Context.currentPos()
+                });
         }
         else if(!fields.exists(f -> f.name == "copy")) {
             Context.warning(
@@ -241,15 +215,52 @@ class DeepStateInfrastructure {
             pos: Context.currentPos()
         });
 
-        /*
-        trace(cls.name + " ==================");
-        for(key in checkedTypes.keys()) {
-            trace(key + " => " + Std.string(checkedTypes.getStr(key)).substr(0, 10));
-
-        }
-        */
-
         return fields;
     }
 }
+
+/////////////////////////////////////////////////////////////////////
+
+@:forward(keys)
+abstract RecursiveTypeCheck(Map<String, Null<MetaObjectType>>) {
+    inline public function new() 
+        this = new Map<String, Null<MetaObjectType>>();
+
+    public function get(t : {pack : Array<String>, name: String}) {
+        var typeName = key(t);
+        return this.get(typeName);
+    }
+
+    public function getStr(key : String) {
+        return this.get(key);
+    }
+
+    public function exists(t : {pack : Array<String>, name: String}) {
+        var typeName = key(t);
+        return this.exists(typeName);
+    }
+
+    public function mark(t : {pack : Array<String>, name: String}) {
+        var typeName = key(t);
+        if(this.exists(typeName)) throw "Checked type exists: " + typeName;
+
+        this.set(typeName, null);
+    }
+
+    public function set(t : {pack : Array<String>, name: String}, type : MetaObjectType) {
+        var typeName = key(t);
+        if(type == null) throw "MetaObjectType is null.";
+        if(this.exists(typeName) && this.get(typeName) != null) throw "Checked type wasn't null: " + typeName;
+
+        this.set(typeName, type);
+        return type;
+    }
+
+    public function key(t : {pack : Array<String>, name: String}) {
+        return t.pack.toDotPath(t.name);
+    }
+
+    public function map() return this;
+}
+
 #end

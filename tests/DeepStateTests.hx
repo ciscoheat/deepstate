@@ -42,6 +42,8 @@ typedef Chessboard = {
 
 class Chess extends DeepState<Chess, Chessboard> {}
 
+class ObservableChess extends DeepState.ObservableDeepState<ObservableChess, Chessboard> {}
+
 ///////////////////////////////////////////////////////////
 
 typedef RecursiveState = {
@@ -721,6 +723,36 @@ class DeepStateTests extends buddy.SingleSuite {
                     (next.state.json.get('place') : String).should.be("Ljungaverk");
                 });
             });
+        });
+
+        /////////////////////////////////////////////////////////////
+
+        describe("ObservableDeepState", {
+            describe("The subscribe method", {
+                it("should subscribe to a part of the state tree", {
+                    var chess = new ObservableChess({
+                        board: [
+                            [{color: White(1), piece: "R"},{color: Black(["2"]), piece: "N"}],
+                            [{color: White(3), piece: "p"}]
+                        ],
+                        players: {black: "B", white: "W"}
+                    });
+
+                    var names : Array<String> = [];
+
+                    var unsub = chess.observable.subscribe(chess.state.players.white, chess.state.players.black, 
+                        (white, black) -> {
+                            names.push('$white:$black');
+                        }
+                    );
+
+                    chess = chess.update(chess.state.players.black, "B2");
+                    chess.state.players.black.should.be("B2");
+
+                    names.length.should.be(1);
+                    names[0].should.be("W:B2");
+                });
+            });            
         });
     }
 }

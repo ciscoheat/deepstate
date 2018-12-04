@@ -1,9 +1,7 @@
-import ds.Action.PathAccess;
 import haxe.Unserializer;
 import haxe.DynamicAccess;
 import haxe.macro.Context;
 import haxe.macro.Expr;
-import haxe.Constraints;
 import ds.*;
 
 using Reflect;
@@ -56,7 +54,6 @@ class DeepState<S : DeepState<S,T>, T> {
 
     function new(currentState : T, middlewares : ImmutableArray<Middleware<S,T>> = null) {
         if(currentState == null) throw "currentState is null";
-
         this.state = currentState;
         this.middlewares = middlewares == null ? [] : middlewares;
     }
@@ -79,13 +76,11 @@ class DeepState<S : DeepState<S,T>, T> {
             else switch iter.next() {
                 case Field(name): switch curState {
                     case Anonymous(fields):
-                        //trace("Creating Anonymous");
                         var data = Reflect.copy(currentObject);
                         Reflect.setField(data, name, createNew(Reflect.field(currentObject, name), fields.get(name)));
                         return data;
 
                     case Instance(cls, fields):
-                        //trace("Creating Instance");
                         // Create a new class with data constructor
                         var data = new haxe.DynamicAccess<Dynamic>();
 
@@ -98,7 +93,6 @@ class DeepState<S : DeepState<S,T>, T> {
                         return Type.createInstance(Type.resolveClass(cls), [data]);
 
                     case Recursive(type):
-                        //throw "Deep recursive updates not supported. Update the topmost recursive field only in type " + type.substr(1);
                         return createNew(currentObject, stateTypes.get(type));
 
                     case _: error();
@@ -120,50 +114,21 @@ class DeepState<S : DeepState<S,T>, T> {
     }
 
     @:noCompletion public function updateState(action : Action) : S {
-        /*
-        for(u in action.updates) {
-            var path = [for(p in u.path) switch p {
-                case Field(name): name;
-                case Array(index): Std.string(index);
-            }].join(".");
-            trace('[${action.type}] ' + path + " => " + u.value);
-        }
-        */
-
         // Last function in middleware chain - create a new state.
         function copyAndUpdateState(action : Action) : S {
             var newState = this.state;
-            //trace("BEFORE ================== " + newState);
             for(a in action.updates) {
                 newState = createAndReplace(newState, a.path, a.value);
             }
-            /*
-            trace("AFTER ================== " + newState);
-            trace(newState);
-            trace("xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx");
-            */
             return this.copy(newState);
         }
 
         // Apply middleware
         var dispatch : Action -> S = copyAndUpdateState;
-
-            for(m in middlewares.reverse()) {
+        for(m in middlewares.reverse())
             dispatch = m.bind(cast this, dispatch);
-        }
 
         return dispatch(action);
-    }
-
-    @:noCompletion function getFieldInState(state : T, path : String) {
-        if(path == "") return state;
-
-        var output : Dynamic = state;
-        for(p in path.split(".")) {
-            if(!Reflect.hasField(output, p)) throw 'Field not found in state: $path';
-            output = Reflect.field(output, p);
-        }
-        return output;
     }
     #else
 
@@ -183,6 +148,7 @@ class DeepState<S : DeepState<S,T>, T> {
         } else {
             var filterPath = true;
             var paths = new Array<PathAccessExpr>();
+
             function parseUpdateExpr(e : Expr) switch e.expr {
                 case EField(e1, name): 
                     if(name == "state") filterPath = false
@@ -355,23 +321,42 @@ class DeepState<S : DeepState<S,T>, T> {
         //if(Context.defined("display") || Context.defined("display-details")) 
             //return macro null;
 
-        return {
-            var realUpdates = [for(u in updates) {
-                var paths = [for(p in u.path) switch p {
-                    case Field(name): macro ds.PathAccess.Field($v{name});
-                    case Array(e): macro ds.PathAccess.Array($e);
-                }];
-
-                macro {
-                    path: $a{paths},
-                    value: ${u.value}
-                }
+        var realUpdates = [for(u in updates) {
+            var paths = [for(p in u.path) switch p {
+                case Field(name): macro ds.PathAccess.Field($v{name});
+                case Array(e): macro ds.PathAccess.Array($e);
             }];
 
-            macro $store.updateState({
-                type: $aType,
-                updates: $a{realUpdates}
-            });
-        }
+            macro {
+                path: $a{paths},
+                value: ${u.value}
+            }
+        }];
+
+        return macro $store.updateState({
+            type: $aType,
+            updates: $a{realUpdates}
+        });
     }
 }
+
+#if !macro
+class ObservableDeepState<S : ObservableDeepState<S,T>, T> extends DeepState<S,T> {
+    public final observable : ds.Observable<S,T>;
+
+    public function new(currentState : T, middlewares : ImmutableArray<Middleware<S,T>> = null, observable : Observable<S,T> = null) {
+        if(observable == null) {
+            observable = new Observable<S, T>();
+            if(middlewares == null) middlewares = [observable.observe];
+            else middlewares = middlewares.push(observable.observe);
+        }        
+        this.observable = observable;
+        super(currentState, middlewares);
+    }
+
+    override function copy(newState : T) : S {
+        var params : Array<Dynamic> = [newState, this.middlewares, this.observable];
+        return cast Type.createInstance(Type.getClass(this), params);
+    }
+}
+#end
