@@ -203,15 +203,15 @@ Here's a list of supported default values. If not supported, the `defaultState` 
 
 | Type              | Default value                                           |
 | ----------------- | ------------------------------------------------------- |
-| Bool              | false                                                   |
-| String            | ""                                                      |
-| Int               | 0                                                       |
-| Int64             | haxe.Int64.make(0,0)                                    |
-| Float             | 0.0                                                     |
-| Date              | Date.now()                                              |
-| ImmutableJson     | new haxe.DynamicAccess<Dynamic>()                       |
-| ImmutableArray    | []                                                      |
-| Recursive         | null                                                    |
+| Bool              | `false`                                                 |
+| String            | `""`                                                    |
+| Int               | `0`                                                     |
+| Int64             | `haxe.Int64.make(0,0)`                                  |
+| Float             | `0.0`                                                   |
+| Date              | `Date.now()`                                            |
+| ImmutableJson     | `new haxe.DynamicAccess<Dynamic>()`                     |
+| ImmutableArray    | `[]`                                                    |
+| Recursive         | `null`                                                  |
 | Anonymous         | The above values for every field.                       |
 | Instance          | Not supported, set default values in the class instead. |
 
