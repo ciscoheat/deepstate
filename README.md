@@ -242,7 +242,7 @@ if(!subscriber.closed)
 ```
 
 ```haxe
-// Using the converience class
+// Using the convenience class ObservableDeepState
 class HSBC extends DeepState.ObservableDeepState<HSBC, State> {}
 
 var asset = new HSBC(someInitialState);
