@@ -278,9 +278,7 @@ class DeepState<S : DeepState<S,T>, T> {
         }
     }
 
-    #end
-
-    public macro function update(store : ExprOf<DeepState<Dynamic, Dynamic>>, args : Array<Expr>) {
+    public static function _update(store : Expr, args : Array<Expr>) {
         var actionType : Expr = null;
 
         // Extract Action updates from the parameters
@@ -346,5 +344,11 @@ class DeepState<S : DeepState<S,T>, T> {
             type: $aType,
             updates: $a{realUpdates}
         });
+    }
+    
+    #end
+
+    public macro function update(store : ExprOf<DeepState<Dynamic, Dynamic>>, args : Array<Expr>) {
+        return _update(store, args);
     }
 }

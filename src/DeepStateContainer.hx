@@ -1,8 +1,9 @@
 import ds.*;
+import haxe.macro.Expr;
 
-#if !macro
 //@:genericBuild
 class DeepStateContainer {
+    #if !macro
     public var asset(default, null) : AgeNameAsset;
     public final observable : ds.Observable<AgeNameAsset, AgeName>;
 
@@ -19,11 +20,30 @@ class DeepStateContainer {
         this.asset = asset.copy(asset.state, middlewares);
     }
 
-    function updateAsset(asset : AgeNameAsset, next : Action -> AgeNameAsset, action : Action) : AgeNameAsset {
+    function updateAsset(asset, next, action) {
         return this.asset = next(action);
+    }
+
+    @:noCompletion public function subscribeObserver(observer: Observer<AgeName>, immediateCall : Null<AgeName> = null) : Subscription {
+        return this.observable.subscribeObserver(observer, immediateCall);
+    }
+
+    @:noCompletion public function updateState(action : Action) : AgeNameAsset {
+        return this.asset.updateState(action);
+    }
+
+    #end
+
+    public macro function update(container : ExprOf<DeepStateContainer>, args : Array<Expr>) {
+        return DeepState._update(container, args);
+    }
+
+    public macro function subscribe(container : ExprOf<DeepStateContainer>, paths : Array<Expr>) {
+        return Observable._subscribe(container, paths);
     }
 }
 
+#if !macro
 typedef AgeName = {
 	final age : Int;
 	final name : String;

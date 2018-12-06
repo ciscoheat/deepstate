@@ -59,6 +59,11 @@ class Observable<S : DeepState<S,T>, T> {
     }
 
     public macro function subscribe(observable : ExprOf<Observable<S,T>>, paths : Array<Expr>) {
+        return _subscribe(observable, paths);
+    }
+
+    #if macro
+    public static function _subscribe(observable : Expr, paths : Array<Expr>) {
         var listener = paths.pop();
 
         var callImmediate = switch listener.expr {
@@ -66,7 +71,6 @@ class Observable<S : DeepState<S,T>, T> {
             case _:
                 if(paths.length == 0) macro null
                 else {
-                    // Last argument = bool
                     var currentState = listener;
                     listener = paths.pop();
                     currentState;
@@ -112,4 +116,5 @@ class Observable<S : DeepState<S,T>, T> {
             }
         }
     }
+    #end
 }

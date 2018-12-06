@@ -775,12 +775,12 @@ class DeepStateTests extends buddy.SingleSuite {
 
                 var ages : Array<Int> = [];
 
-                container.observable.subscribe(container.state.age, age -> ages.push(age));
+                container.subscribe(container.state.age, age -> ages.push(age));
 
-                container.asset.update(container.state.age, age -> age + 10);
+                container.update(container.state.age, age -> age + 10);
                 container.state.age.should.be(10);
 
-                container.asset.update(container.state.age, age -> age + 10);
+                container.update(container.state.age, age -> age + 10);
                 container.state.age.should.be(20);
 
                 ages.should.containExactly([10,20]);
