@@ -42,7 +42,17 @@ typedef Chessboard = {
 }
 
 class Chess extends DeepState<Chess, Chessboard> {}
-class ObservableChess extends DeepState.ObservableDeepState<ObservableChess, Chessboard> {}
+
+///////////////////////////////////////////////////////////
+
+/*
+typedef AgeName = {
+	final age : Int;
+	final name : String;
+}
+
+class AgeNameAsset extends DeepState<AgeNameAsset, AgeName> {}
+*/
 
 ///////////////////////////////////////////////////////////
 
@@ -101,7 +111,7 @@ class FBI extends DeepState<FBI, DataClassState> {
     public function new(initialState, middlewares = null) 
         super(initialState, middlewares);
 
-    override function copy(newState : DataClassState) : FBI {
+    override function copy(newState, middlewares) : FBI {
         return new FBI(newState, middlewares);
     }
 
@@ -759,32 +769,22 @@ class DeepStateTests extends buddy.SingleSuite {
 
         /////////////////////////////////////////////////////////////
 
-        describe("ObservableDeepState", {
-            describe("The subscribe method", {
-                it("should subscribe to a part of the state tree", {
-                    var chess = new ObservableChess({
-                        board: [
-                            [{color: White(1), piece: "R"},{color: Black(["2"]), piece: "N"}],
-                            [{color: White(3), piece: "p"}]
-                        ],
-                        players: {black: "B", white: "W"}
-                    });
+        describe("DeepStateContainer", {
+            it("should contain a mutable asset", {
+                var container = new DeepStateContainer(new DeepStateContainer.AgeNameAsset(DeepStateContainer.AgeNameAsset.defaultState()));
 
-                    var names : Array<String> = [];
+                var ages : Array<Int> = [];
 
-                    var unsub = chess.observable.subscribe(chess.state.players.white, chess.state.players.black, 
-                        (white, black) -> {
-                            names.push('$white:$black');
-                        }
-                    );
+                container.observable.subscribe(container.state.age, age -> ages.push(age));
 
-                    chess = chess.update(chess.state.players.black, "B2");
-                    chess.state.players.black.should.be("B2");
+                container.asset.update(container.state.age, age -> age + 10);
+                container.state.age.should.be(10);
 
-                    names.length.should.be(1);
-                    names[0].should.be("W:B2");
-                });
-            });            
+                container.asset.update(container.state.age, age -> age + 10);
+                container.state.age.should.be(20);
+
+                ages.should.containExactly([10,20]);
+            });
         });
     }
 }

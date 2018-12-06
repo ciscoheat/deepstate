@@ -4,7 +4,6 @@ import haxe.macro.Context;
 import haxe.macro.Expr;
 import ds.*;
 
-using Reflect;
 using Lambda;
 
 #if macro
@@ -70,8 +69,9 @@ class DeepState<S : DeepState<S,T>, T> {
     /////////////////////////////////////////////////////////////////
 
     // Override if you create an inherited constructor.
-    function copy(newState : T) : S {
-        return cast Type.createInstance(Type.getClass(this), [newState, this.middlewares]);
+    @:allow(DeepStateContainer)
+    function copy(newState : T, middlewares : ImmutableArray<Middleware<S,T>>) : S {
+        return cast Type.createInstance(Type.getClass(this), [newState, middlewares]);
     }
 
     // Make a deep copy of a new state object.
@@ -129,7 +129,7 @@ class DeepState<S : DeepState<S,T>, T> {
             for(a in action.updates) {
                 newState = createAndReplace(newState, a.path, a.value);
             }
-            return this.copy(newState);
+            return this.copy(newState, this.middlewares);
         }
 
         // Apply middleware
@@ -280,7 +280,7 @@ class DeepState<S : DeepState<S,T>, T> {
 
     #end
 
-    public macro function update(store : ExprOf<DeepState<Dynamic>>, args : Array<Expr>) {
+    public macro function update(store : ExprOf<DeepState<Dynamic, Dynamic>>, args : Array<Expr>) {
         var actionType : Expr = null;
 
         // Extract Action updates from the parameters
@@ -348,24 +348,3 @@ class DeepState<S : DeepState<S,T>, T> {
         });
     }
 }
-
-#if !macro
-class ObservableDeepState<S : ObservableDeepState<S,T>, T> extends DeepState<S,T> {
-    public final observable : ds.Observable<S,T>;
-
-    public function new(currentState : T, middlewares : ImmutableArray<Middleware<S,T>> = null, observable : Observable<S,T> = null) {
-        if(observable == null) {
-            observable = new Observable<S, T>();
-            if(middlewares == null) middlewares = [observable.observe];
-            else middlewares = middlewares.push(observable.observe);
-        }
-        this.observable = observable;
-        super(currentState, middlewares);
-    }
-
-    override function copy(newState : T) : S {
-        var params : Array<Dynamic> = [newState, this.middlewares, this.observable];
-        return cast Type.createInstance(Type.getClass(this), params);
-    }
-}
-#end

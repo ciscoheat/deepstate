@@ -22,9 +22,9 @@ class Observable<S : DeepState<S,T>, T> {
         return new Subscription(function() observers.remove(observer));
     }
 
-    public function observe(asset2 : Dynamic, next : Action -> Dynamic, action : Action) : Dynamic {
+    public function observe(asset : Dynamic, next : Action -> Dynamic, action : Action) : Dynamic {
         var newState = next(action);
-        for(o in observers) observeState(o, asset2.state, newState.state);
+        for(o in observers) observeState(o, asset.state, newState.state);
         return newState;
     }
 

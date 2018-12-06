@@ -1,8 +1,6 @@
 -lib buddy
 -lib dataclass
 
-#-D deepstate-immutable-asset
-
 #--times
 #-D macro-times
 -D analyzer-optimize

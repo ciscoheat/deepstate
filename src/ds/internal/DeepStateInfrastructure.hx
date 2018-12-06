@@ -147,6 +147,8 @@ class DeepStateInfrastructure {
             case TEnum(t, _):
                 var t = t.get();
                 t.pack.toDotPath(t.name);
+            case TAnonymous(_):
+                Context.error("Create a typedef of the state type, to use it in DeepState.", Context.currentPos());
             case x:
                 Context.error("Invalid state type: " + x, Context.currentPos());
         }        
