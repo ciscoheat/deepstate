@@ -4,8 +4,8 @@ import haxe.macro.Expr;
 //@:genericBuild
 class DeepStateContainer {
     #if !macro
-    public var asset(default, null) : AgeNameAsset;
-    public final observable : ds.Observable<AgeNameAsset, AgeName>;
+    var asset(default, null) : AgeNameAsset;
+    final observable : ds.Observable<AgeNameAsset, AgeName>;
 
     public var state(get, never) : AgeName;
     function get_state() : AgeName return asset.state;
@@ -28,8 +28,8 @@ class DeepStateContainer {
         return this.observable.subscribeObserver(observer, immediateCall);
     }
 
-    @:noCompletion public function updateState(action : Action) : AgeNameAsset {
-        return this.asset.updateState(action);
+    @:noCompletion public function updateState(action : Action) : Void {
+        this.asset.updateState(action);
     }
 
     #end

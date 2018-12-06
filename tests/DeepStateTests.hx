@@ -770,8 +770,11 @@ class DeepStateTests extends buddy.SingleSuite {
         /////////////////////////////////////////////////////////////
 
         describe("DeepStateContainer", {
-            it("should contain a mutable asset", {
-                var container = new DeepStateContainer(new DeepStateContainer.AgeNameAsset(DeepStateContainer.AgeNameAsset.defaultState()));
+            it("should contain a mutable asset and an observable", {
+                var container = new DeepStateContainer(
+                    new DeepStateContainer.AgeNameAsset(
+                        DeepStateContainer.AgeNameAsset.defaultState()
+                ));
 
                 var ages : Array<Int> = [];
 
