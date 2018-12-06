@@ -17,7 +17,9 @@ typedef TestState = {
         final tags : ImmutableArray<{
             final name : String;
         }>;
-        final stuff : ImmutableMap<String, Bool>;
+        final stuff : ImmutableMap<String, { 
+            final priority : Int; 
+        }>;
     }
     final timestamps : ImmutableArray<Date>;
     final json : ImmutableJson;
@@ -176,12 +178,13 @@ class DeepStateTests extends buddy.SingleSuite {
     public function new() {
         var asset : CIA;
         var asset2 : FBI;
+
         var initialState : TestState = {
             score: 0,
             person: {
                 name: { firstName: "Wall", lastName: "Enberg" },
                 tags: [{name: "Boliden"}, {name: "IG"}],
-                stuff: new Map<String, Bool>()
+                stuff: ["Ljungaverk" => {priority: 10}]
             },
             timestamps: [],
             json: { 
@@ -196,7 +199,7 @@ class DeepStateTests extends buddy.SingleSuite {
             person: {
                 name: { firstName: "Montagu", lastName: "Norman" },
                 tags: [{name: "Ring"}],
-                stuff: new Map<String, Bool>()
+                stuff: ["Ljungaverk" => {priority: 10}]
             },
             timestamps: [Date.now()],
             json: { name: "Meitner", place: "Ljungaverk", year: 1945 }
@@ -439,6 +442,14 @@ class DeepStateTests extends buddy.SingleSuite {
                     });
                     var next = chess.update(chess.state.board[1][0].piece, "Q");
                     next.state.board[1][0].piece.should.be("Q");
+                });
+
+                it("should handle map access for ImmutableMaps", {
+                    asset.state.person.stuff["Ljungaverk"].priority.should.be(10);
+                    var next = asset.update(asset.state.person.stuff["Ljungaverk"].priority, 11, "MapUpdate");
+
+                    next.state.person.stuff["Ljungaverk"].priority.should.be(11);
+                    asset.state.person.stuff.should.not.be(next.state.person.stuff);
                 });
             });
 

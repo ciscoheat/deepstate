@@ -101,7 +101,7 @@ class DeepStateInfrastructure {
                         case [["haxe"], "Int64"]: Int64;
                         case [["ds"], "ImmutableJson"]: ImmutableJson;
                         case [["ds"], "ImmutableList"]: ImmutableList;
-                        case [["ds"], "ImmutableMap"]: ImmutableMap;
+                        case [["ds"], "ImmutableMap"]: Map(stateFieldType(params[1]));
                         case [["ds"], "ImmutableArray"]: Array(stateFieldType(params[0]));
                         case _:
                             //trace("TAbstract: " + abstractType.type);
@@ -211,7 +211,7 @@ class DeepStateInfrastructure {
                 case Float: macro 0.0;
                 case Date: macro Date.now();
                 case ImmutableJson: macro new haxe.DynamicAccess<Dynamic>();
-                //case ImmutableMap: macro []; // RC5 feature
+                //case Map(_): []; // RC5 feature
                 case Array(_): macro [];
                 case Recursive(_): macro null;
                 case Anonymous(fields): mapToAnon(fields);

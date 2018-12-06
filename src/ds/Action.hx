@@ -22,4 +22,5 @@ typedef Action = {
 enum PathAccess {
     Field(name : String);
     Array(index : Int);
+    Map(key : String);
 }

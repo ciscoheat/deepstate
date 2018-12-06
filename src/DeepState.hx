@@ -15,6 +15,7 @@ using haxe.macro.TypeTools;
 private enum PathAccessExpr {
     Field(name : String);
     Array(e : Expr);
+    Map(e : Expr);
 }
 
 private typedef ActionUpdateExpr = {
@@ -35,13 +36,13 @@ enum MetaObjectType {
     Float;
     Date;
     Enum;
-    ImmutableMap;
     ImmutableList;
     ImmutableJson;
     Recursive(type : String);
     Anonymous(fields: Map<String, MetaObjectType>);
     Instance(cls: String, fields: Map<String, MetaObjectType>);
     Array(type: MetaObjectType); // Always an ImmutableArray
+    Map(type: MetaObjectType); // Always an ImmutableMap
 }
 
 /////////////////////////////////////////////////////////////////////
@@ -74,7 +75,10 @@ class DeepState<S : DeepState<S,T>, T> {
         return cast Type.createInstance(Type.getClass(this), [newState, middlewares]);
     }
 
-    // Make a deep copy of a new state object.
+    /**
+     * Make a copy of a state object, replacing a value in the state.
+     * All references except the new value will be kept.
+     */
     @:noCompletion function createAndReplace(currentState : T, path : ImmutableArray<Action.PathAccess>, newValue : Any) : T {
         function error() { throw "Invalid DeepState update: " + path + " (" + newValue + ")"; }
 
@@ -114,6 +118,13 @@ class DeepState<S : DeepState<S,T>, T> {
 
                     case _: error();
                 }
+                case Map(key): switch curState {
+                    case Map(type):
+                        var currentMap : ImmutableMap<Dynamic, Dynamic> = cast currentObject;
+                        return currentMap.set(key, createNew(currentMap.get(key), type));
+
+                    case _: error();
+                }
 
             }
             return null;
@@ -145,16 +156,20 @@ class DeepState<S : DeepState<S,T>, T> {
      //// Macro code ////////////////////////////////////////////////
     ////////////////////////////////////////////////////////////////
 
+    // Test if types unify by trying to assign a temp var with the new value
     static function unifies(type : ComplexType, value : Expr) return try {
-        // Test if types unify by trying to assign a temp var with the new value
         Context.typeof(macro var _DStest : $type = $value);
         true;
     } catch(e : Dynamic) false;
+
+    // Used when testing if array access is for Array or Map
+    static var intType = TPath({name: "Int", pack: []});
 
     static function _updateField(path : Expr, pathType : haxe.macro.Type, newValue : Expr) : ActionUpdateExpr {
         return if(!unifies(Context.toComplexType(pathType), newValue)) {
             Context.error("Value should be of type " + pathType.toString(), newValue.pos);
         } else {
+            // Detects the initial "asset.state" reference.
             var filterPath = true;
             var paths = new Array<PathAccessExpr>();
 
@@ -163,12 +178,18 @@ class DeepState<S : DeepState<S,T>, T> {
                     if(name == "state") filterPath = false
                     else if(filterPath) paths.push(Field(name));
                     parseUpdateExpr(e1);
+
                 case EArray(e1, e2):
-                    paths.push(Array(e2));
+                    paths.push(unifies(intType, e2)
+                        ? Array(e2)
+                        : Map(e2)
+                    );
                     parseUpdateExpr(e1);
+
                 case EConst(CIdent(name)):
                     if(name == "state") filterPath = false 
                     else if(filterPath) paths.push(Field(name));
+
                 case x:
                     Context.error("Invalid DeepState update expression.", e.pos);
             }
@@ -236,22 +257,23 @@ class DeepState<S : DeepState<S,T>, T> {
     /////////////////////////////////////////////////////////////////
 
     static var typeNameCalls = new Map<String, {hash: String, pos: haxe.macro.Position}>();
-    static function checkDuplicateAction(store : Expr, actionType : String, updates : Array<ActionUpdateExpr>, pos) {
+    static function checkDuplicateAction(asset : Expr, actionType : String, updates : Array<ActionUpdateExpr>, pos) {
 
-        var clsName = try switch Context.typeof(store) {
+        var clsName = try switch Context.typeof(asset) {
             case TInst(t, _):
                 var cls = t.get();
                 cls.module + "." + cls.pack.join(".") + "." + cls.name + ".";
             case _:
-                Context.error("Asset is not a class.", store.pos);
+                Context.error("Asset is not a class.", asset.pos);
         } catch(e : Dynamic) {
-            Context.error("Asset type not found, please provide a type hint.", store.pos);
+            Context.error("Asset type not found, please provide a type hint.", asset.pos);
         }
 
         var updateHash = [for(u in updates) {
             [for(p in u.path) switch p {
                 case Field(name): name;
-                case Array(e): "()";
+                case Array(_): "()";
+                case Map(_): "[]";
             }].join(".");
         }];
         updateHash.sort((a,b) -> a < b ? -1 : 1);
@@ -278,7 +300,7 @@ class DeepState<S : DeepState<S,T>, T> {
         }
     }
 
-    public static function _update(store : Expr, args : Array<Expr>) {
+    public static function _update(asset : Expr, args : Array<Expr>) {
         var actionType : Expr = null;
 
         // Extract Action updates from the parameters
@@ -322,7 +344,7 @@ class DeepState<S : DeepState<S,T>, T> {
                 actionType;
         }
 
-        checkDuplicateAction(store, aTypeString, updates, aTypePos);
+        checkDuplicateAction(asset, aTypeString, updates, aTypePos);
 
         // Display mode and vshaxe diagnostics have some problems with this.
         //if(Context.defined("display") || Context.defined("display-details")) 
@@ -332,6 +354,7 @@ class DeepState<S : DeepState<S,T>, T> {
             var paths = [for(p in u.path) switch p {
                 case Field(name): macro ds.PathAccess.Field($v{name});
                 case Array(e): macro ds.PathAccess.Array($e);
+                case Map(e): macro ds.PathAccess.Map($e);
             }];
 
             macro {
@@ -340,15 +363,20 @@ class DeepState<S : DeepState<S,T>, T> {
             }
         }];
 
-        return macro $store.updateState({
+        return macro $asset.updateState({
             type: $aType,
             updates: $a{realUpdates}
         });
     }
-    
+
     #end
 
-    public macro function update(store : ExprOf<DeepState<Dynamic, Dynamic>>, args : Array<Expr>) {
-        return _update(store, args);
+    /**
+     * Updates the asset
+     * @param asset 
+     * @param args 
+     */
+    public macro function update(asset : ExprOf<DeepState<Dynamic, Dynamic>>, args : Array<Expr>) {
+        return _update(asset, args);
     }
 }
