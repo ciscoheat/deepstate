@@ -1,17 +1,16 @@
 import ds.*;
 import haxe.macro.Expr;
 
-//@:genericBuild
-class DeepStateContainer {
+class DeepStateContainer<S : DeepState<S,T>,T> {
     #if !macro
-    var asset(default, null) : AgeNameAsset;
-    final observable : ds.Observable<AgeNameAsset, AgeName>;
+    var asset(default, null) : S;
+    final observable : ds.Observable<S, T>;
 
-    public var state(get, never) : AgeName;
-    function get_state() : AgeName return asset.state;
+    public var state(get, never) : T;
+    function get_state() : T return asset.state;
 
-    public function new(asset : AgeNameAsset, middlewares : ImmutableArray<Middleware<AgeNameAsset,AgeName>> = null, observable : Observable<AgeNameAsset,AgeName> = null) {
-        if(observable == null) observable = new Observable<AgeNameAsset, AgeName>();
+    public function new(asset : S, middlewares : ImmutableArray<Middleware<S,T>> = null, observable : Observable<S,T> = null) {
+        if(observable == null) observable = new Observable<S, T>();
 
         if(middlewares == null) middlewares = []; 
         middlewares = middlewares.concat([updateAsset, observable.observe]);
@@ -24,7 +23,7 @@ class DeepStateContainer {
         return this.asset = next(action);
     }
 
-    @:noCompletion public function subscribeObserver(observer: Observer<AgeName>, immediateCall : Null<AgeName> = null) : Subscription {
+    @:noCompletion public function subscribeObserver(observer: Observer<T>, immediateCall : Null<T> = null) : Subscription {
         return this.observable.subscribeObserver(observer, immediateCall);
     }
 
@@ -42,12 +41,3 @@ class DeepStateContainer {
         return Observable._subscribe(container, paths);
     }
 }
-
-#if !macro
-typedef AgeName = {
-	final age : Int;
-	final name : String;
-}
-
-class AgeNameAsset extends DeepState<AgeNameAsset, AgeName> {}
-#end

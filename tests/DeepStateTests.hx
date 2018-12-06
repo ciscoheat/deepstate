@@ -45,14 +45,12 @@ class Chess extends DeepState<Chess, Chessboard> {}
 
 ///////////////////////////////////////////////////////////
 
-/*
 typedef AgeName = {
 	final age : Int;
 	final name : String;
 }
 
 class AgeNameAsset extends DeepState<AgeNameAsset, AgeName> {}
-*/
 
 ///////////////////////////////////////////////////////////
 
@@ -771,12 +769,13 @@ class DeepStateTests extends buddy.SingleSuite {
 
         describe("DeepStateContainer", {
             it("should contain a mutable asset and an observable", {
-                var container = new DeepStateContainer(
-                    new DeepStateContainer.AgeNameAsset(
-                        DeepStateContainer.AgeNameAsset.defaultState()
+                var container = new DeepStateContainer<AgeNameAsset, AgeName>(
+                    new AgeNameAsset(
+                        AgeNameAsset.defaultState()
                 ));
-
                 var ages : Array<Int> = [];
+
+                container.state.age.should.be(0);
 
                 container.subscribe(container.state.age, age -> ages.push(age));
 
