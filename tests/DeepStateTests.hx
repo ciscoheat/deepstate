@@ -52,6 +52,8 @@ typedef AgeName = {
 
 class AgeNameAsset extends DeepState<AgeNameAsset, AgeName> {}
 
+class AgeNameContainer extends DeepStateContainer<AgeNameAsset, AgeName> {}
+
 ///////////////////////////////////////////////////////////
 
 typedef RecursiveState = {
@@ -769,10 +771,7 @@ class DeepStateTests extends buddy.SingleSuite {
 
         describe("DeepStateContainer", {
             it("should contain a mutable asset and an observable", {
-                var container = new DeepStateContainer<AgeNameAsset, AgeName>(
-                    new AgeNameAsset(
-                        AgeNameAsset.defaultState()
-                ));
+                var container = new AgeNameContainer(new AgeNameAsset(AgeNameAsset.defaultState()));
                 var ages : Array<Int> = [];
 
                 container.state.age.should.be(0);

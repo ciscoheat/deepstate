@@ -132,9 +132,6 @@ class DeepStateInfrastructure {
 
         var cls = Context.getLocalClass().get();
 
-        // Skip ObservableDeepState, it's considered an abstract base class.
-        if(cls.name == "ObservableDeepState") return (null : Array<Field>);
-
         var stateType = cls.superClass.params[1];
         var stateTypeMeta = stateFieldType(stateType);
         var stateTypeName = switch stateType {
@@ -156,35 +153,19 @@ class DeepStateInfrastructure {
         // Add a constructor if not defined
         var fields = Context.getBuildFields();
         if(!fields.exists(f -> f.name == "new")) {
-            if(cls.superClass.t.get().name == "ObservableDeepState")
-                fields.push({
-                    access: [APublic],
-                    kind: FFun({
-                        args: [
-                            {name: 'currentState', type: null},
-                            {name: 'middlewares', type: null, opt: true},
-                            {name: 'observable', type: null, opt: true}
-                        ],
-                        expr: macro super(currentState, middlewares, observable),
-                        ret: null
-                    }),
-                    name: "new",
-                    pos: Context.currentPos()
-                })
-            else // Normal DeepState
-                fields.push({
-                    access: [APublic],
-                    kind: FFun({
-                        args: [
-                            {name: 'currentState', type: null},
-                            {name: 'middlewares', type: null, opt: true}
-                        ],
-                        expr: macro super(currentState, middlewares),
-                        ret: null
-                    }),
-                    name: "new",
-                    pos: Context.currentPos()
-                });
+            fields.push({
+                access: [APublic],
+                kind: FFun({
+                    args: [
+                        {name: 'currentState', type: null},
+                        {name: 'middlewares', type: null, opt: true}
+                    ],
+                    expr: macro super(currentState, middlewares),
+                    ret: null
+                }),
+                name: "new",
+                pos: Context.currentPos()
+            });
         }
         else if(!fields.exists(f -> f.name == "copy")) {
             Context.warning(
@@ -259,6 +240,43 @@ class DeepStateInfrastructure {
         return fields;
     }
 }
+
+/////////////////////////////////////////////////////////////////////
+
+/*
+class ContainerInfrastructure {
+    static public function build() {
+        var cls = Context.getLocalClass().get();
+
+        var assetType = cls.superClass.params[0];
+
+
+        // Add a constructor if not defined
+        var fields = Context.getBuildFields();
+
+        if(fields.exists(f -> f.name == "new")) return null;
+
+        fields.push({
+            access: [APublic],
+            kind: FFun({
+                args: [
+                    {name: 'asset', type: null},
+                    {name: 'middlewares', type: null, opt: true},
+                    {name: 'observable', type: null, opt: true}
+                ],
+                expr: macro {
+                    super(asset, middlewares, observable);
+                },
+                ret: null
+            }),
+            name: "new",
+            pos: Context.currentPos()
+        });
+
+        return fields;
+    }
+}
+*/
 
 /////////////////////////////////////////////////////////////////////
 

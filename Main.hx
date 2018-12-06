@@ -18,6 +18,8 @@ typedef State = {
 // where S is the asset type, and T is the type of your program state.
 class CIA extends DeepState<CIA, State> {}
 
+class HSBC extends DeepStateContainer<CIA, State> {}
+
 // And a Main class to use it.
 class Main {
     static function main() {
@@ -85,6 +87,13 @@ class Main {
             unsubscriber.unsubscribe();
 
         //////////////////////////////////////////////////////////////////
+
+        var container = new HSBC(new CIA(CIA.defaultState()));
+
+        container.subscribe(container.state.score, score -> trace("Score updated."));
+        container.update(container.state.score, score -> score + 10);
+
+        trace(container.state.score);
     }
 }
 

@@ -10,6 +10,7 @@ class DeepStateContainer<S : DeepState<S,T>,T> {
     function get_state() : T return asset.state;
 
     public function new(asset : S, middlewares : ImmutableArray<Middleware<S,T>> = null, observable : Observable<S,T> = null) {
+        if(asset == null) throw "asset is null";
         if(observable == null) observable = new Observable<S, T>();
 
         if(middlewares == null) middlewares = []; 

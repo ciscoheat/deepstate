@@ -217,7 +217,7 @@ Here's a list of supported default values. If not supported, the `defaultState` 
 
 The above functionality will get you far, you could for example create a middleware for your favorite web framework, redrawing or updating its components when the state updates. By popular request, an observable middleware has been added, making it easy to subscribe to state updates.
 
-Create an `ds.Observable<S, T>` to subscribe to changes, or inherit your asset from `DeepState.ObservableDeepState<S, T>`:
+Create an `ds.Observable<S, T>` to subscribe to changes:
 
 ```haxe
 var observable = new ds.Observable<CIA, State>();
@@ -239,14 +239,6 @@ if(!subscriber.closed)
     subscriber.unsubscribe();
 ```
 
-```haxe
-// Using the convenience class ObservableDeepState
-class HSBC extends DeepState.ObservableDeepState<HSBC, State> {}
-
-var asset = new HSBC(someInitialState);
-asset.observable.subscribe(asset.state.player, player -> trace("Player updated."));
-```
-
 If you want to observe the state immediately upon subscription, which can be useful to populate objects, you can pass a state `T` as a final argument to `subscribe`.
 
 The observer will only be called upon changes *on the selected parts of the state tree*. So in the first example, it won't be called if the score changed. If you want to observe all updates, call `subscribe` with a function that takes two parameters, the previous and updated state:
@@ -255,6 +247,30 @@ The observer will only be called upon changes *on the selected parts of the stat
 var subscriber = observable.subscribe((prev, current) -> {
     if(prev.score < current.score) trace("Score increased!");
 });
+```
+
+## DeepStateContainer
+
+The goal of DeepState is to create a contained and controlled state. There has to be a mutable reference point for the program state somewhere, otherwise the program wouldn't show any updates. This poses the question why the asset can't contain a mutable state? It's possible, but opens up to two problematic scenarios:
+
+- Any part of the program could update the asset and mutate its state, which isn't very contained compared to having full control over the asset by returning a new asset on every update.
+- Using methods in the asset for updating the state. You get more control, but as the number of methods grows, the asset becomes defragmented and increasingly difficult to maintain and overview.
+
+Because of this the asset will be kept completely immutable, which is great if you're creating a game that executes in a game loop. Then you can just pass the new state along in the loop, and at the end update the mutable state reference, so the game can use the new state in the next run of the loop.
+
+Web frameworks don't work like this though, so a container can be useful here, acting like a MVC Model that can be passed around to the Views. A `DeepStateContainer` has been created for this purpose. It will contain a state that changes on each call to `update`, and comes with an observer as well. Here's a usage example:
+
+```haxe
+class Asset extends DeepState<Asset, State> {}
+
+class HSBC extends DeepStateContainer<Asset, State> {}
+
+var container = new HSBC(new Asset(Asset.defaultState()));
+
+container.subscribe(container.state.player, player -> trace("Player updated."));
+container.update(container.state.score, score -> score + 10);
+
+trace(container.state);
 ```
 
 ## DataClass support

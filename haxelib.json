@@ -12,7 +12,7 @@
 	"contributors": [
 		"ciscoheat"
 	],
-	"releasenote": "Haxe 4-preview4 compatibility fix.",
-	"version": "0.7.1",
+	"releasenote": "Added DeepStateContainer.",
+	"version": "0.8.0",
 	"url": "http://github.com/ciscoheat/deepstate/"
 }
