@@ -261,8 +261,10 @@ Because of this the asset will be kept completely immutable, which is great if y
 Web frameworks don't work like this though, so a container can be useful here, acting like a MVC Model that can be passed around to the Views. A `DeepStateContainer` has been created for this purpose. It will contain a state that changes on each call to `update`, and comes with an observer as well. Here's a usage example:
 
 ```haxe
+// The asset
 class Asset extends DeepState<Asset, State> {}
 
+// Its container
 class HSBC extends DeepStateContainer<Asset, State> {}
 
 var container = new HSBC(new Asset(Asset.defaultState()));
@@ -272,6 +274,8 @@ container.update(container.state.score, score -> score + 10);
 
 trace(container.state);
 ```
+
+The constructor for the container is `new Container(asset, middlewares = null, observable = null)`, meaning that you can pass additional middlewares and a custom observable to the container. It's useful for keeping track of other middleware, such as logging.
 
 ## DataClass support
 
@@ -286,7 +290,7 @@ The API is getting stable, but there could be minor changes. The aim is to suppo
 - [x] Support for DataClass
 - [x] Making the asset itself immutable, instead of treating it as a state container
 - [x] Default state initialization
-- [ ] Support for objects with a Map-like interface
+- [x] Support for objects with a Map-like interface
 - [ ] Your choice! Create an issue to join in.
 
 [![Build Status](https://travis-ci.org/ciscoheat/deepstate.svg?branch=master)](https://travis-ci.org/ciscoheat/deepstate)
