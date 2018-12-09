@@ -34,11 +34,11 @@ class DeepStateContainer<S : DeepState<S,T>,T> {
 
     #end
 
-    public macro function update(container : ExprOf<DeepStateContainer>, args : Array<Expr>) {
+    public macro function update(container : Expr, args : Array<Expr>) {
         return DeepState._update(container, args);
     }
 
-    public macro function subscribe(container : ExprOf<DeepStateContainer>, paths : Array<Expr>) {
+    public macro function subscribe(container : Expr, paths : Array<Expr>) {
         return Observable._subscribe(container, paths);
     }
 }

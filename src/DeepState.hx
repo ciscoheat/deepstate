@@ -376,7 +376,7 @@ class DeepState<S : DeepState<S,T>, T> {
      * @param asset 
      * @param args 
      */
-    public macro function update(asset : ExprOf<DeepState<Dynamic, Dynamic>>, args : Array<Expr>) {
+    public macro function update(asset : Expr, args : Array<Expr>) {
         return _update(asset, args);
     }
 }

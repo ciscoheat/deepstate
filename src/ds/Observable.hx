@@ -58,7 +58,7 @@ class Observable<S : DeepState<S,T>, T> {
         }        
     }
 
-    public macro function subscribe(observable : ExprOf<Observable<S,T>>, paths : Array<Expr>) {
+    public macro function subscribe(observable : Expr, paths : Array<Expr>) {
         return _subscribe(observable, paths);
     }
 
