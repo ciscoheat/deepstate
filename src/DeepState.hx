@@ -53,7 +53,7 @@ class DeepState<S : DeepState<S,T>, T> {
 
     // All state types T created by the build macro
     @:noCompletion public static var stateTypes : Map<String, MetaObjectType>
-        = cast haxe.Unserializer.run(haxe.rtti.Meta.getType(DeepState).stateTypes[0]);
+        = cast haxe.Unserializer.run(haxe.rtti.Meta.getType(DeepState).deepStateTypes[0]);
 
     // Automatically overridden in inherited classes by build macro
     @:noCompletion function stateType() : MetaObjectType { return null; }

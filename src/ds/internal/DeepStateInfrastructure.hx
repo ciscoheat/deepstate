@@ -18,25 +18,53 @@ using haxe.macro.ExprTools;
  * and creating a path => type statec structure for quick access.
  */
 class DeepStateInfrastructure {
-    static var checkedTypes : RecursiveTypeCheck;
 
     static public function build() {
+        var checkedTypes : RecursiveTypeCheck = null;
+
         if(checkedTypes == null) {
+            var key = "deepStateTypes";
             checkedTypes = new RecursiveTypeCheck();
             Context.onGenerate(types -> {
                 for(t in types) switch t {
                     case TInst(t, params):
                         var inst = t.get();
                         if(inst.pack.length == 0 && inst.name == "DeepState") {
-                            var serialized = haxe.Serializer.run(checkedTypes.map());
-                            inst.meta.add("stateTypes", [macro $v{serialized}], Context.currentPos());
+                            // TODO: Change this serialization to a method that overrides for each subclass.
+                            var map : Map<String, MetaObjectType> = if(inst.meta.has(key)) {
+                                var type = inst.meta.extract(key)[0].params[0].expr;
+                                //trace(type);
+                                switch type {
+                                    case EConst(CString(s)): 
+                                        inst.meta.remove(key);
+                                        cast haxe.Unserializer.run(s);
+                                    case _:
+                                        Context.error("Invalid DeepState metadata.", Context.currentPos());
+                                }
+                            } else {
+                                new Map<String, MetaObjectType>();
+                            }
+
+                            var checkedMap = checkedTypes.map();                            
+
+                            for(key in map.keys()) {
+                                checkedMap.set(key, map[key]);
+                            }
+
+                            //trace([for(key in checkedMap.keys()) key]);
+
+                            var serialized = haxe.Serializer.run(checkedMap);
+                            inst.meta.add(key, [macro $v{serialized}], Context.currentPos());
                         }
                     case _:
                 }
+                checkedTypes = null;
             });
         }
 
         function stateFieldType(type : Type) : MetaObjectType {
+            //trace([for(key in checkedTypes.keys()) key]);
+
             return switch type {
                 case TEnum(t, params):
                     var enumType = t.get();
@@ -112,6 +140,7 @@ class DeepStateInfrastructure {
                     var typede = t.get();
                     //trace("TType: " + typede.name);
                     return if(checkedTypes.exists(typede)) {
+                        //trace("Type is recursive: " + typede.name);
                         Recursive(checkedTypes.key(typede));
                     }
                     else {
@@ -131,6 +160,8 @@ class DeepStateInfrastructure {
         /////////////////////////////////////////////////////////////
 
         var cls = Context.getLocalClass().get();
+
+        //trace("--- Checkedtypes: " + [for(key in checkedTypes.keys()) key]);
 
         var stateType = cls.superClass.params[1];
         var stateTypeMeta = stateFieldType(stateType);
@@ -237,46 +268,12 @@ class DeepStateInfrastructure {
             pos: Context.currentPos()
         });
 
-        return fields;
-    }
-}
-
-/////////////////////////////////////////////////////////////////////
-
-/*
-class ContainerInfrastructure {
-    static public function build() {
-        var cls = Context.getLocalClass().get();
-
-        var assetType = cls.superClass.params[0];
-
-
-        // Add a constructor if not defined
-        var fields = Context.getBuildFields();
-
-        if(fields.exists(f -> f.name == "new")) return null;
-
-        fields.push({
-            access: [APublic],
-            kind: FFun({
-                args: [
-                    {name: 'asset', type: null},
-                    {name: 'middlewares', type: null, opt: true},
-                    {name: 'observable', type: null, opt: true}
-                ],
-                expr: macro {
-                    super(asset, middlewares, observable);
-                },
-                ret: null
-            }),
-            name: "new",
-            pos: Context.currentPos()
-        });
+        //trace("===== " + cls.name);
+        //trace(stateTypeMeta);
 
         return fields;
     }
 }
-*/
 
 /////////////////////////////////////////////////////////////////////
 

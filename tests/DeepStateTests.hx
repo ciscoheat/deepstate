@@ -141,6 +141,15 @@ class FBI extends DeepState<FBI, DataClassState> {
 
 /////////////////////////////////////////////////////////////////////
 
+
+typedef SimpleState = {
+	final name : String;
+}
+
+class SimpleAsset extends DeepState<SimpleAsset, SimpleState> {}
+
+/////////////////////////////////////////////////////////////////////
+
 class MiddlewareLog<S : DeepState<S,T>, T> {
     public function new() {}
 
@@ -342,6 +351,11 @@ class DeepStateTests extends buddy.SingleSuite {
                 asset.state.date.should.not.be(null);
                 asset.state.date.getFullYear().should.beGreaterThan(2017);
                 asset.state.floats.length.should.be(0);
+            });
+
+            it("has a 'defaultState' method for creating simple assets", {
+                var s = SimpleAsset.defaultState();
+                s.name.should.be("");
             });
 
             /////////////////////////////////////////////////////////
