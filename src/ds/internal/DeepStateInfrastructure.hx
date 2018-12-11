@@ -163,7 +163,7 @@ class DeepStateInfrastructure {
 
         //trace("--- Checkedtypes: " + [for(key in checkedTypes.keys()) key]);
 
-        var stateType = cls.superClass.params[1];
+        var stateType = cls.superClass.params[0];
         var stateTypeMeta = stateFieldType(stateType);
         var stateTypeName = switch stateType {
             case TType(t, _):

@@ -1,17 +1,17 @@
 import ds.*;
 import haxe.macro.Expr;
 
-class DeepStateContainer<S : DeepState<S,T>,T> {
+class DeepStateContainer<T> {
     #if !macro
-    var asset(default, null) : S;
-    final observable : ds.Observable<S, T>;
+    var asset(default, null) : DeepState<T>;
+    final observable : ds.Observable<T>;
 
     public var state(get, never) : T;
     function get_state() : T return asset.state;
 
-    public function new(asset : S, middlewares : ImmutableArray<Middleware<S,T>> = null, observable : Observable<S,T> = null) {
+    public function new(asset : DeepState<T>, middlewares : ImmutableArray<Middleware<T>> = null, observable : Observable<T> = null) {
         if(asset == null) throw "asset is null";
-        if(observable == null) observable = new Observable<S, T>();
+        if(observable == null) observable = new Observable<T>();
 
         if(middlewares == null) middlewares = []; 
         middlewares = middlewares.concat([updateAsset, observable.observe]);

@@ -48,7 +48,7 @@ enum MetaObjectType {
 /////////////////////////////////////////////////////////////////////
 
 @:autoBuild(ds.internal.DeepStateInfrastructure.build())
-class DeepState<S : DeepState<S,T>, T> {
+class DeepState<T> {
     #if !macro
 
     // All state types T created by the build macro
@@ -59,9 +59,9 @@ class DeepState<S : DeepState<S,T>, T> {
     @:noCompletion function stateType() : MetaObjectType { return null; }
 
     public final state : T;
-    final middlewares : ImmutableArray<Middleware<S,T>>;
+    final middlewares : ImmutableArray<Middleware<T>>;
 
-    function new(currentState : T, middlewares : ImmutableArray<Middleware<S,T>> = null) {
+    public function new(currentState : T, middlewares : ImmutableArray<Middleware<T>> = null) {
         if(currentState == null) throw "currentState is null";
         this.state = currentState;
         this.middlewares = middlewares == null ? [] : middlewares;
@@ -71,7 +71,7 @@ class DeepState<S : DeepState<S,T>, T> {
 
     // Override if you create an inherited constructor.
     @:allow(DeepStateContainer)
-    function copy(newState : T, middlewares : ImmutableArray<Middleware<S,T>>) : S {
+    function copy(newState : T, middlewares : ImmutableArray<Middleware<T>>) : DeepState<T> {
         return cast Type.createInstance(Type.getClass(this), [newState, middlewares]);
     }
 
@@ -84,7 +84,7 @@ class DeepState<S : DeepState<S,T>, T> {
 
         var iter = path.iterator();
         function createNew(currentObject : Any, curState : MetaObjectType) : Any {
-            //trace(currentObject + " - " + curState);
+            trace(currentObject + " - " + curState);
             if(!iter.hasNext()) return newValue
             else switch iter.next() {
                 case Field(name): switch curState {
@@ -133,9 +133,10 @@ class DeepState<S : DeepState<S,T>, T> {
         return createNew(currentState, this.stateType());
     }
 
-    @:noCompletion public function updateState(action : Action) : S {
+    @:noCompletion public function updateState(action : Action) : DeepState<T> {
         // Last function in middleware chain - create a new state.
-        function copyAndUpdateState(action : Action) : S {
+        function copyAndUpdateState(action : Action) : DeepState<T> {
+            trace(action);
             var newState = this.state;
             for(a in action.updates) {
                 newState = createAndReplace(newState, a.path, a.value);
@@ -144,7 +145,7 @@ class DeepState<S : DeepState<S,T>, T> {
         }
 
         // Apply middleware
-        var dispatch : Action -> S = copyAndUpdateState;
+        var dispatch : Action -> DeepState<T> = copyAndUpdateState;
         for(m in middlewares.reverse())
             dispatch = m.bind(cast this, dispatch);
 

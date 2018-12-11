@@ -7,7 +7,7 @@ using Reflect;
 using Lambda;
 using haxe.macro.ExprTools;
 
-class Observable<S : DeepState<S,T>, T> {
+class Observable<T> {
     final observers : Array<Observer<T>>;
 
     public function new() {
