@@ -303,25 +303,19 @@ class DeepState<S : DeepState<S,T>, T> {
     public static function _update(asset : Expr, args : Array<Expr>) {
         var actionType : Expr = null;
 
-        // Extract Action updates from the parameters
-        var updates = switch args[0].expr {
-            case EArrayDecl(values): 
-                actionType = args[1];
+        // Extract Action updates from the arguments
+        var updates = args.mapi((i, arg) -> switch arg.expr {
+            case EBinop(OpAssign, e1, e2):
+                _updateIn(e1, e2);
 
-                values.flatMap(e -> {
-                    switch e.expr {
-                        case EBinop(op, e1, e2) if(op == OpArrow):
-                            _updateIn(e1, e2);
-                        case _: 
-                            Context.error("Parameter must be an array map declaration: [K => V, ...]", e.pos);
-                            null;
-                    }
-                }).array();
-            
             case _: 
-                actionType = args[2];
-                _updateIn(args[0], args[1]);
-        }
+                if(i == args.length-1 && args.length > 1)
+                    actionType = arg;
+                else
+                    Context.error("Arguments must be an assignment, or a String if last argument.", arg.pos);
+                null;
+                
+        }).filter(u -> u != null).flatMap(u -> u).array();
 
         // Set a default action type (Class.method) if not specified
         var aTypeString : String;

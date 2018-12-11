@@ -26,11 +26,11 @@ Introducing **DeepState**, a state library that wants to go back to basics inste
 
 Since the beginning we've had this thing called **program state**, and just as in real life the state can be bloated and packed with confusing rules that seems more important than life itself. But full anarchy isn't advantageous either, letting anyone do everything they want, for example writing everywhere in memory without restrictions. A middle ground is best, a few clever rules that makes life easier and at the same time prevents fools from ruining things, or others from making mistakes with large repercussions.
 
-Something that seems very useful in combination with program state is **immutability**. It prevents accidental overwrites, and we also start viewing data as facts, and the state as a snapshot in time, similar to version control software like Git, another idea that has proved to be very useful (especially if you've used bisect).
+Something that seems very useful in combination with program state is **immutability**. It prevents accidental overwrites, and we also start viewing data as facts, and the state as a snapshot in time, as used in version control software like Git, another idea that has proved to be very useful (especially if you've used bisect).
 
-Making the state become a version controlled repository and commit data to it is appealing, but the whole idea of committing is perhaps not fully compatible with a process like running software. In Git you stage changes, review them and finally commit them with a descriptive message. There are also no rules to what can be deleted and added in the repository. When programming we express known change sets, and they will be applied by a machine at runtime. Therefore the concept of **actions**, taken from Flux and Redux, makes sense as a simplified commit. They are similar to events but applies only to state updates.
+Making the state become a snapshot in time is advantageuos, but the idea of version control committing isn't fully compatible with a process like running software. In Git you stage changes, review them and finally commit them with a descriptive message. There are also no rules to what can be deleted and added in the repository. When programming we express known change sets, and they will be applied by a machine at runtime. Therefore the concept of **actions**, taken from Flux and Redux, makes sense as a simplified commit.
 
-Finally, **middleware** has proved to be useful as a simpler version of Aspect-oriented programming. The idea is to be able to inspect and apply changes to the actions, logging and authorization being the standard examples. This enables us to save the program state to some kind of repository if you will, making that time machine possible, because the state isn't saved anywhere as default. Why not? The problem is similar to what happens in async programming, where the trends have produced a plethora of options. Should you use callbacks? Promises? A specific promise library? Async/await?
+Finally, **middleware** has proved to be useful as a simpler version of Aspect-oriented programming. The idea is to be able to inspect and apply changes to the actions, logging and authorization being the standard examples. This enables us to save the program state if you will, because the state isn't saved anywhere as default. Why not? The problem is similar to what happens in async programming, where the trends have produced a plethora of options. Should you use callbacks? Promises? A specific promise library? Async/await?
 
 The answer is that it depends on your project, so here we need flexibility, instead of opinionated libraries.
 
@@ -86,26 +86,26 @@ class Main {
         // It can be passed a normal value for direct updates.
         // The default action type is "Class.method" for the caller, 
         // so this action will have the type "Main.main":
-        var next = asset.update(asset.state.score, 0);
+        var next = asset.update(asset.state.score = 0);
 
         // A lambda function can also be used for incremental updates.
-        next = next.update(next.state.score, score -> score + 1);
+        next = next.update(next.state.score = score -> score + 1);
 
         // Partial objects are also supported.
         // This update is different from the two above, so the default 
         // name "Main.main" will clash. Add a unique action type as the 
         // last argument to fix it.
         next = next.update(
-            next.state.player, {firstName: "Avery"}, "UpdatePlayer"
+            next.state.player = {firstName: "Avery"}, "UpdatePlayer"
         );
 
-        // For multiple (atomic) updates in the same action, pass in a
-        // map declaration.
-        next = next.update([
-            next.state.score => s -> s + 10,
-            next.state.player.firstName => "John Foster",
-            next.state.timestamps => next.state.timestamps.push(Date.now())
-        ], "BigUpdate");
+        // For multiple (atomic) updates in the same action, pass in
+        // multiple arguments.
+        next = next.update(
+            next.state.score = s -> s + 10,
+            next.state.player.firstName = "John Foster",
+            next.state.timestamps = next.state.timestamps.push(Date.now())
+        , "BigUpdate");
         
         // Access state as you expect:
         trace(next.state);
@@ -120,7 +120,7 @@ Run the test with: `haxe -x Main -lib deepstate`
 
 ## Middleware
 
-Lets make the famous Redux time machine then! Middleware is a function that takes three arguments:
+Lets make the famous Redux time machine! Middleware is a function that takes three arguments:
 
 1. **asset:** The current asset `S`, always before any middleware was/is applied
 1. **next:** A `next` function that will pass an `Action` to the next middleware
@@ -163,7 +163,7 @@ To restore a previous state, a simple way is to expose some revert method in the
 ```haxe
 class CIA extends DeepState<CIA, GameState> {
     public function revert(previous : GameState)
-        return update(this.state, previous);
+        return update(this.state = previous);
 }
 
 // Now you can turn back time:
@@ -178,7 +178,7 @@ No assumptions are made about the actions, which means that any future behavior 
 public function changeName(firstName : String, lastName : String) {
     return new Promise((resolve, reject) -> {
         api.checkValidName(firstName, lastName).then(() -> {
-            var next = asset.update(asset.state.player, { 
+            var next = asset.update(asset.state.player = { 
                 firstName: firstName, 
                 lastName: lastName
             });
@@ -270,7 +270,7 @@ class HSBC extends DeepStateContainer<Asset, State> {}
 var container = new HSBC(new Asset(Asset.defaultState()));
 
 container.subscribe(container.state.player, player -> trace("Player updated."));
-container.update(container.state.score, score -> score + 10);
+container.update(container.state.score = score -> score + 10);
 
 trace(container.state);
 ```
@@ -291,6 +291,7 @@ The API is getting stable, but there could be minor changes. The aim is to suppo
 - [x] Making the asset itself immutable, instead of treating it as a state container
 - [x] Default state initialization
 - [x] Support for objects with a Map-like interface
+- [ ] Generic/composable assets
 - [ ] Your choice! Create an issue to join in.
 
 [![Build Status](https://travis-ci.org/ciscoheat/deepstate.svg?branch=master)](https://travis-ci.org/ciscoheat/deepstate)

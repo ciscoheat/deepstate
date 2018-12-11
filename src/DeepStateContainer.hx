@@ -14,14 +14,15 @@ class DeepStateContainer<S : DeepState<S,T>,T> {
         if(observable == null) observable = new Observable<S, T>();
 
         if(middlewares == null) middlewares = []; 
-        middlewares = middlewares.concat([updateAsset, observable.observe]);
+        middlewares = middlewares.concat([updateAsset]);
 
         this.observable = observable;
         this.asset = asset.copy(asset.state, middlewares);
     }
 
     function updateAsset(asset, next, action) {
-        return this.asset = next(action);
+        this.observable.observe(asset, (a) -> this.asset = next(a), action);
+        return this.asset;
     }
 
     @:noCompletion public function subscribeObserver(observer: Observer<T>, immediateCall : Null<T> = null) : Subscription {

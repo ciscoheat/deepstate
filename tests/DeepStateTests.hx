@@ -101,11 +101,11 @@ class DataClassState implements DataClass {
 
 class CIA extends DeepState<CIA, TestState> {
     public function addScore(add : Int) {
-        return update(state.score, state.score + add);
+        return update(state.score = state.score + add);
     }
 
     public function changeFirstName(firstName) {
-        return update(state.person.name.firstName, firstName);
+        return update(state.person.name.firstName = firstName);
     }
 }
 
@@ -118,17 +118,17 @@ class FBI extends DeepState<FBI, DataClassState> {
     }
 
     public function changeName(first : String, last : String) {
-        return update([
-            state.person.firstName => name -> first == null ? name : first,
-            state.person.lastName => name -> last == null ? name : last
-        ]);
+        return update(
+            state.person.firstName = name -> first == null ? name : first,
+            state.person.lastName = name -> last == null ? name : last
+        );
     }
 
     public function setScore(score : Int)
-        return update(this.state.score, score);
+        return update(this.state.score = score);
 
     public function updateFullState() {
-        return update(this.state, new DataClassState({
+        return update(this.state = new DataClassState({
             score: 0, 
             person: new Person({
                 firstName: "Hjalmar",
@@ -241,7 +241,7 @@ class DeepStateTests extends buddy.SingleSuite {
                     asset.state = nextState
                 );
 
-                var newState = asset.update(asset.state, nextState, "FullUpdate");
+                var newState = asset.update(asset.state = nextState, "FullUpdate");
 
                 newState.state.should.not.be(null);
                 newState.state.should.be(nextState);
@@ -252,10 +252,10 @@ class DeepStateTests extends buddy.SingleSuite {
             });
 
             it("should not modify the first state object when multiple changes are made", {
-                var newState = asset.update([
-                    asset.state => nextState,
-                    asset.state.person.name => { firstName: "Avery", lastName: "Dulles" }
-                ], "MultipleUpdates");
+                var newState = asset.update(
+                    asset.state = nextState,
+                    asset.state.person.name = { firstName: "Avery", lastName: "Dulles" }
+                , "MultipleUpdates");
 
                 testIdentity(newState);
                 newState.state.score.should.be(1);
@@ -270,8 +270,7 @@ class DeepStateTests extends buddy.SingleSuite {
 
             it("should update fields in the middle of the state tree", {
                 var newState = asset.update(
-                    asset.state.person.name, 
-                    { firstName: "Montagu", lastName: "Norman" },
+                    asset.state.person.name = { firstName: "Montagu", lastName: "Norman" },
                     "NameUpdate"
                 );
 
@@ -283,7 +282,7 @@ class DeepStateTests extends buddy.SingleSuite {
             });
 
             it("should update fields at the end of the state tree", {
-                var newState = asset.update(asset.state.person.name.firstName, "Wallan", "FirstNameUpdate");
+                var newState = asset.update(asset.state.person.name.firstName = "Wallan", "FirstNameUpdate");
 
                 testIdentity(newState);
                 newState.state.score.should.be(0);
@@ -301,7 +300,7 @@ class DeepStateTests extends buddy.SingleSuite {
             });
 
             it("should update fields at the top of the state tree", {
-                var newState = asset.update(asset.state.score, 10, "ScoreUpdate");
+                var newState = asset.update(asset.state.score = 10, "ScoreUpdate");
 
                 testIdentity(newState);
                 newState.state.score.should.be(10);
@@ -313,13 +312,13 @@ class DeepStateTests extends buddy.SingleSuite {
                 newState2.state.score.should.be(30);
             });
 
-            it("should update several fields if specified in the Action", {
+            it("should update several fields through a Map in the Action", {
                 var timestamps = asset.state.timestamps;
-                var newState = asset.update([
-                    asset.state.score => 100,
-                    asset.state.person.name.lastName => "Norman",
-                    asset.state.timestamps => timestamps.push(Date.now())
-                ], 'test_multiple');
+                var newState = asset.update(
+                    asset.state.score = 100,
+                    asset.state.person.name.lastName = "Norman",
+                    asset.state.timestamps = timestamps.push(Date.now())
+                , 'test_multiple_map');
 
                 testIdentity(newState);
                 newState.state.score.should.be(100);
@@ -331,11 +330,25 @@ class DeepStateTests extends buddy.SingleSuite {
                 newState.state.timestamps.should.not.be(timestamps);
             });
 
+            it("should update several fields through assignment in the Action", {
+                var timestamps = asset.state.timestamps;
+                var newState = asset.update(
+                    asset.state.score = 100,
+                    asset.state.person.name.lastName = "Norman"
+                , 'test_multiple_assignment');
+
+                testIdentity(newState);
+                newState.state.score.should.be(100);
+
+                newState.state.person.name.firstName.should.be("Wall");
+                newState.state.person.name.lastName.should.be("Norman");
+            });
+
             it("should handle deep recursive updates", {
                 var rec = new Recursive({node: {node: {node: null, value: "3"}, value: "2"}, value: "1"});
 
                 rec.state.node.node.value.should.be("3");
-                var next = rec.update(rec.state.node.node.value, "A", "DeepRecursiveUpdate");
+                var next = rec.update(rec.state.node.node.value = "A", "DeepRecursiveUpdate");
                 next.state.node.value.should.be("A");
             });
 
@@ -362,13 +375,13 @@ class DeepStateTests extends buddy.SingleSuite {
 
             describe("The update method", {
                 it("should use a lambda function to update a field if passed a function", {
-                    var next = asset.update(asset.state.score, score -> 1);
-                    next = next.update(next.state.score, score -> score + 2);
+                    var next = asset.update(asset.state.score = score -> 1);
+                    next = next.update(next.state.score = score -> score + 2);
                     next.state.score.should.be(3);
                 });
 
                 it("should update fields when given a partial object", {
-                    var newState = asset.update(asset.state.person.name, {firstName: "Marcus"}, "UpdateFirstName");
+                    var newState = asset.update(asset.state.person.name = {firstName: "Marcus"}, "UpdateFirstName");
 
                     testIdentity(newState);
                     newState.state.person.name.firstName.should.be("Marcus");
@@ -384,7 +397,7 @@ class DeepStateTests extends buddy.SingleSuite {
                 });
 
                 it("should update the whole field when given a complete object", {
-                    var newState = asset.update(asset.state.person.name, {
+                    var newState = asset.update(asset.state.person.name = {
                         firstName: "Marcus", lastName: "Wallenberg"
                     }, 'UpdateFullname');
 
@@ -407,7 +420,7 @@ class DeepStateTests extends buddy.SingleSuite {
                 });
 
                 it("should update the whole state if specified", {
-                    var newState = asset.update(asset.state, nextState, "FullUpdate");
+                    var newState = asset.update(asset.state = nextState, "FullUpdate");
 
                     newState.state.should.not.be(null);
                     newState.state.should.not.be(asset.state);
@@ -419,11 +432,11 @@ class DeepStateTests extends buddy.SingleSuite {
                 });
 
                 it("should update several values in one action if given a map", {
-                    var newState = asset.update([
-                        asset.state.score => score -> score + 3,
-                        asset.state.person.name.lastName => "Dulles",
-                        asset.state.person.name => {firstName: "John Foster"}
-                    ], "UpdateSeveral");
+                    var newState = asset.update(
+                        asset.state.score = score -> score + 3,
+                        asset.state.person.name.lastName = "Dulles",
+                        asset.state.person.name = {firstName: "John Foster"}
+                    , "UpdateSeveral");
 
                     testIdentity(newState);
                     newState.state.score.should.be(3);
@@ -431,8 +444,8 @@ class DeepStateTests extends buddy.SingleSuite {
                     newState.state.person.name.lastName.should.be("Dulles");
 
                     CompilationShould.failFor(asset.update([1,2,3]));
-                    CompilationShould.failFor(asset.update([a => "b"]));
-                    CompilationShould.failFor(asset.update([asset.state.score => "not an int"]));
+                    CompilationShould.failFor(asset.update(a = "b"));
+                    CompilationShould.failFor(asset.update(asset.state.score = "not an int"));
                 });
 
                 it("should unify between arguments for type safety", {
@@ -440,7 +453,7 @@ class DeepStateTests extends buddy.SingleSuite {
                 });
 
                 it("should handle array access for ImmutableArrays", {
-                    var next = asset.update(asset.state.person.tags[0].name, "Tagged", "ArrayUpdate");
+                    var next = asset.update(asset.state.person.tags[0].name = "Tagged", "ArrayUpdate");
                     next.state.person.tags.length.should.be(2);
                     next.state.person.tags[0].name.should.be("Tagged");
                     next.state.person.tags[1].name.should.be("IG");
@@ -454,13 +467,13 @@ class DeepStateTests extends buddy.SingleSuite {
                         ],
                         players: {black: "Kassman", white: "Aschberg"}
                     });
-                    var next = chess.update(chess.state.board[1][0].piece, "Q");
+                    var next = chess.update(chess.state.board[1][0].piece = "Q");
                     next.state.board[1][0].piece.should.be("Q");
                 });
 
                 it("should handle map access for ImmutableMaps", {
                     asset.state.person.stuff["Ljungaverk"].priority.should.be(10);
-                    var next = asset.update(asset.state.person.stuff["Ljungaverk"].priority, 11, "MapUpdate");
+                    var next = asset.update(asset.state.person.stuff["Ljungaverk"].priority = 11, "MapUpdate");
 
                     next.state.person.stuff["Ljungaverk"].priority.should.be(11);
                     asset.state.person.stuff.should.not.be(next.state.person.stuff);
@@ -482,11 +495,11 @@ class DeepStateTests extends buddy.SingleSuite {
                     next.state.person.firstName.should.be("Giuseppe");
                     next.state.person.lastName.should.be("Volpi");
 
-                    next = next.update(next.state, FBIstate);
+                    next = next.update(next.state = FBIstate);
                     next.state.should.be(currentState);
 
                     // This update should not collide with asset.update.
-                    next = next.update(next.state, FBIstate);
+                    next = next.update(next.state = FBIstate);
                     next.state.should.be(currentState);
                 });
 
@@ -535,15 +548,15 @@ class DeepStateTests extends buddy.SingleSuite {
             });
 
             it("should be possible to specify action type by suppling a string as last argument, or null to use the calling method.", {
-                var next = asset.update(asset.state.score, 20, "Custom Score");
+                var next = asset.update(asset.state.score = 20, "Custom Score");
 
                 logger.logs.length.should.be(1);
                 logger.logs[0].type.should.be("Custom Score");
 
                 next.state.score.should.be(20);
 
-                next = next.update([next.state.score => s -> s + 20], "Another custom");
-                next = next.update([next.state.score => s -> s + 20], null);
+                next = next.update(next.state.score = s -> s + 20, "Another custom");
+                next = next.update(next.state.score = s -> s + 20, null);
 
                 logger.logs.length.should.be(3);
 
@@ -589,7 +602,7 @@ class DeepStateTests extends buddy.SingleSuite {
                     nameCalls.should.be(2);
                     lastNameCalls.should.be(0);
 
-                    next = next.update(next.state.person.name.lastName, "Dulles", "UpdateLastName");
+                    next = next.update(next.state.person.name.lastName = "Dulles", "UpdateLastName");
                     next.state.person.name.lastName.should.be("Dulles");
                     newName.should.be("Avery Dulles");
                     nameCalls.should.be(3);
@@ -623,7 +636,7 @@ class DeepStateTests extends buddy.SingleSuite {
                     newName.should.be("Avery Enberg (0)");
                     multiCalls.should.be(1);
 
-                    var next = observedAsset.update(observedAsset.state, nextState, "FullUpdate");
+                    var next = observedAsset.update(observedAsset.state = nextState, "FullUpdate");
 
                     multiCalls.should.be(2);
                     next.state.score.should.be(1);
@@ -785,7 +798,7 @@ class DeepStateTests extends buddy.SingleSuite {
 
                 it("should update as usual", {
                     var list = asset.state.json;
-                    var next = asset.update(asset.state, nextState, "FullUpdate");
+                    var next = asset.update(asset.state = nextState, "FullUpdate");
                     next.state.json.should.not.be(list);
                     (next.state.json.get('place') : String).should.be("Ljungaverk");
                 });
@@ -801,12 +814,16 @@ class DeepStateTests extends buddy.SingleSuite {
 
                 container.state.age.should.be(0);
 
-                container.subscribe(container.state.age, age -> ages.push(age));
+                container.subscribe(container.state.age, age -> {
+                    // Test if container has updated before observable
+                    container.state.age.should.be(age);
+                    ages.push(age);
+                });
 
-                container.update(container.state.age, age -> age + 10);
+                container.update(container.state.age = age -> age + 10);
                 container.state.age.should.be(10);
 
-                container.update(container.state.age, age -> age + 10);
+                container.update(container.state.age = age -> age + 10);
                 container.state.age.should.be(20);
 
                 ages.should.containExactly([10,20]);
