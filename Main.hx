@@ -60,21 +60,21 @@ class Main {
         // new asset of the same type.
 
         // It can be passed a normal value for direct updates
-        var next = asset.update(asset.state.score, 0);
+        var next = asset.update(asset.state.score = 0);
 
         // Or a lambda function
-        next = next.update(next.state.score, score -> score + 1);
+        next = next.update(next.state.score = score -> score + 1);
 
         // Or a partial object
-        next = next.update(next.state.player, {firstName: "Avery"}, "UpdatePlayer");
+        next = next.update(next.state.player = {firstName: "Avery"}, "UpdatePlayer");
 
         // It could also be passed a map declaration, 
         // for multiple updates in the same action
-        next = next.update([
-            next.state.score => s -> s + 10,
-            next.state.player.firstName => "John Foster",
-            next.state.timestamps => next.state.timestamps.push(Date.now())
-        ], "BigUpdate");
+        next = next.update(
+            next.state.score = s -> s + 10,
+            next.state.player.firstName = "John Foster",
+            next.state.timestamps = next.state.timestamps.push(Date.now())
+        , "BigUpdate");
         
         // Access state as you expect:
         trace(next.state);
@@ -91,7 +91,7 @@ class Main {
         var container = new HSBC(new CIA(CIA.defaultState()));
 
         container.subscribe(container.state.score, score -> trace("Score updated."));
-        container.update(container.state.score, score -> score + 10);
+        container.update(container.state.score = score -> score + 10);
 
         trace(container.state.score);
     }
