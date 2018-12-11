@@ -12,7 +12,7 @@
 	"contributors": [
 		"ciscoheat"
 	],
-	"releasenote": "Fixed autocompletion for macro methods.",
-	"version": "0.9.2",
+	"releasenote": "Better syntax for updates. Container state now updates before observable.",
+	"version": "0.10.0",
 	"url": "http://github.com/ciscoheat/deepstate/"
 }
