@@ -1,6 +1,7 @@
-package ds;
+package ds.gen;
 
 import haxe.DynamicAccess;
+import ds.*;
 import ds.internal.MetaObjectType;
 import haxe.macro.Expr;
 import DeepState as Ds;

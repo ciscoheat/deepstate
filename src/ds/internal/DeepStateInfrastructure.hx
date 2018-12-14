@@ -250,7 +250,7 @@ class DeepStateInfrastructure {
         }
 
             //static final _defaultState : $stateComplexType = ${defaultState(checkedTypes.getStr(stateTypeName))};
-        var c = macro class $clsName extends ds.DeepState<$stateComplexType> {
+        var c = macro class $clsName extends ds.gen.DeepState<$stateComplexType> {
             static final _stateTypes : Map<String, ds.internal.MetaObjectType> = ${metaMapToExpr(metaMap)};
 
             public function new(

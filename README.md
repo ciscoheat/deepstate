@@ -61,16 +61,12 @@ typedef State = {
     final json : ds.ImmutableJson;
 }
 
-// Create a Contained Immutable Asset class by extending DeepState<S, T>,
-// where S is the asset type, and T is the type of your program state.
-class CIA extends DeepState<CIA, State> {}
-
 // And a Main class to use it.
 class Main {
     static function main() {
-        // Instantiate your Contained Immutable Asset with an initial 
-        // state.
-        var asset = new CIA({
+        // Create a Contained Immutable Asset class by instantiating DeepState<T>
+        // where T is the type of your program state. Pass an initial state to it.
+        var asset = new DeepState<State>({
             score: 0,
             player: {
                 firstName: "Wall",
@@ -122,30 +118,31 @@ Run the test with: `haxe -x Main -lib deepstate`
 
 Lets make the famous Redux time machine! Middleware is a function that takes three arguments:
 
-1. **asset:** The current asset `S`, always before any middleware was/is applied
-1. **next:** A `next` function that will pass an `Action` to the next middleware
-1. **action:** The current `Action`, that can be passed to `next` if no changes should be applied.
+1. **asset:** An asset `DeepState<T>`, which is always the state before any middleware is applied
+1. **next:** A function that will pass an `Action` to the next middleware
+1. **action:** The current `Action`, that should be passed to `next` if no changes will be made.
 
-Finally, the middleware should return a new asset `S`, which is the same as returning `next(action)`.
+Finally, the middleware should return a `DeepState<T>`, which is the same as returning `next(action)`.
 
 Here's a logger that will save all state changes, which is just a quick solution. An alternative is to save the actions instead and replaying them, but that's left as an exercise!
 
+**Important note:** Because of how the library works internally, when creating middleware for a generic `DeepState<T>`, you must refer to `ds.gen.DeepState`! The easiest way to do this is to keep your middlewares in a separate module and importing it, as in the following example.
+
 ```haxe
 import ds.Action;
+import ds.gen.DeepState;
 
-// Use Dynamic instead of S if you don't need specific type access, 
-// then you don't need the type constraint.
-class MiddlewareLog<S : DeepState<S,T>, T> {
+class MiddlewareLog<T> {
     public function new() {}
 
     public final logs = new Array<{state: T, type: String, timestamp: Date}>();
 
-    public function log(asset: S, next : Action -> S, action : Action) : S {
+    public function log(asset : DeepState<T>, next : Action -> DeepState<T>, action : Action) : DeepState<T> {
         // Get the next state
         var newState = next(action);
 
         // Log it and return it unchanged
-        logs.push({state: newState.state, type: action.type, timestamp: Date.now()});        
+        logs.push({state: newState.state, type: action.type, timestamp: Date.now()});
         return newState;
     }
 }
@@ -154,20 +151,11 @@ class MiddlewareLog<S : DeepState<S,T>, T> {
 Which then can be used in the asset as such:
 
 ```haxe
-var logger = new MiddlewareLog<CIA, State>();
-var asset = new CIA(initialState, [logger.log]);
-```
-
-To restore a previous state, a simple way is to expose some revert method in the asset:
-
-```haxe
-class CIA extends DeepState<CIA, GameState> {
-    public function revert(previous : GameState)
-        return update(this.state = previous);
-}
+var logger = new MiddlewareLog<State>();
+var asset = new DeepState<State>(initialState, [logger.log]);
 
 // Now you can turn back time:
-var next = asset.revert(logger.logs[0].state);
+asset = asset.update(asset.state = logger.logs[0].state);
 ```
 
 ## Async operations
@@ -188,40 +176,15 @@ public function changeName(firstName : String, lastName : String) {
 }
 ```
 
-## Default state
-
-Every `DeepState` class has a static `defaultState` method, that you can use to quickly create a default asset:
-
-```haxe
-var defaultState = CIA.defaultState();
-var asset = new CIA(defaultState);
-```
-
-Here's a list of supported default values. If not supported, the `defaultState` method will throw an exception.
-
-| Type              | Default value                                           |
-| ----------------- | ------------------------------------------------------- |
-| Bool              | `false`                                                 |
-| String            | `""`                                                    |
-| Int               | `0`                                                     |
-| Int64             | `haxe.Int64.make(0,0)`                                  |
-| Float             | `0.0`                                                   |
-| Date              | `Date.now()`                                            |
-| ImmutableJson     | `new haxe.DynamicAccess<Dynamic>()`                     |
-| ImmutableArray    | `[]`                                                    |
-| Recursive         | `null`                                                  |
-| Anonymous         | The above values for every field.                       |
-| Instance          | Not supported, set default values in the class instead. |
-
 ## Observable
 
 The above functionality will get you far, you could for example create a middleware for your favorite web framework, redrawing or updating its components when the state updates. By popular request, an observable middleware has been added, making it easy to subscribe to state updates.
 
-Create an `ds.Observable<S, T>` to subscribe to changes:
+Create an `ds.Observable<T>` to subscribe to changes:
 
 ```haxe
-var observable = new ds.Observable<CIA, State>();
-var asset = new CIA(someInitialState, [observable.observe]);
+var observable = new ds.Observable<State>();
+var asset = new DeepState<State>(someInitialState, [observable.observe]);
 
 var subscriber = observable.subscribe(    
     asset.state.player,
@@ -261,13 +224,9 @@ Because of this the asset will be kept completely immutable, which is great if y
 Web frameworks don't work like this though, so a container can be useful here, acting like a MVC Model that can be passed around to the Views. A `DeepStateContainer` has been created for this purpose. It will contain a state that changes on each call to `update`, and comes with an observer as well. Here's a usage example:
 
 ```haxe
-// The asset
-class Asset extends DeepState<Asset, State> {}
+class HSBC extends DeepStateContainer<State> {}
 
-// Its container
-class HSBC extends DeepStateContainer<Asset, State> {}
-
-var container = new HSBC(new Asset(Asset.defaultState()));
+var container = new HSBC(new DeepState<State>(initialState));
 
 container.subscribe(container.state.player, player -> trace("Player updated."));
 container.update(container.state.score = score -> score + 10);
@@ -275,11 +234,15 @@ container.update(container.state.score = score -> score + 10);
 trace(container.state);
 ```
 
-The constructor for the container is `new Container(asset, middlewares = null, observable = null)`, meaning that you can pass additional middlewares and a custom observable to the container. It's useful for keeping track of other middleware, such as logging.
+The default constructor for the container is `new Container(asset, middlewares = null, observable = null)`, meaning that you can pass additional middlewares and a custom observable to the container. It's useful for keeping track of other middleware, such as logging.
 
 ## DataClass support
 
 The library [DataClass](https://github.com/ciscoheat/dataclass) is a nice supplement to deepstate, since it has got validation, null checks, JSON export, etc, for your data. It works out-of-the-box, simply create a DataClass with only final fields, and use it as `T` in `DeepState<S, T>`.
+
+## Listing all actions
+
+If you want to list all actions in your code, use `-D deepstate-list-actions` as a compilation define.
 
 ## Roadmap
 

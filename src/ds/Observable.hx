@@ -4,7 +4,6 @@ import haxe.macro.Context;
 import haxe.macro.Expr;
 
 using Reflect;
-using Lambda;
 using haxe.macro.ExprTools;
 
 class Observable<T> {

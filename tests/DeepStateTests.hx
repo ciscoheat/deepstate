@@ -138,7 +138,7 @@ class MiddlewareLog<T> {
 
     public var logs(default, null) = new Array<{state: T, type: String}>();
 
-    public function log(asset: ds.DeepState<T>, next : Action -> ds.DeepState<T>, action : Action) : ds.DeepState<T> {
+    public function log(asset: ds.gen.DeepState<T>, next : Action -> ds.gen.DeepState<T>, action : Action) : ds.gen.DeepState<T> {
         var nextState = next(action);
         logs.push({state: nextState.state, type: action.type});
         logCount.push("MiddlewareLog");

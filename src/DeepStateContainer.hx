@@ -1,5 +1,6 @@
 import DeepState as Ds;
 import ds.*;
+import ds.gen.DeepState;
 import haxe.macro.Expr;
 
 class DeepStateContainer<T> {

@@ -146,18 +146,20 @@ class DeepState<T> {
         }
 
         var updateHash = [for(u in updates) {
-            [for(p in u.path) switch p {
-                case Field(name): name;
-                case Array(_): "()";
+            var str = [for(p in u.path) switch p {
+                case Field(name): '.$name';
+                case Array(_): "[]";
                 case Map(_): "[]";
-            }].join(".");
+            }].join("");
+            while(str.indexOf(".") == 0) str = str.substr(1);
+            str;
         }];
         updateHash.sort((a,b) -> a < b ? -1 : 1);
 
         //trace(updateHash);
 
         var hashKey = clsName + actionType;
-        var actionHash = ' => [' + updateHash.join("] [") + ']';
+        var actionHash = ' => (' + updateHash.join(") (") + ')';
 
         if(typeNameCalls.exists(hashKey)) {
             var typeHash = typeNameCalls.get(hashKey);

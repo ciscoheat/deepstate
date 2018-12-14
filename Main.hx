@@ -14,20 +14,12 @@ typedef State = {
     final json : ds.ImmutableJson;
 }
 
-// Create a Contained Immutable Asset class by extending DeepState<S, T>,
-// where S is the asset type, and T is the type of your program state.
-class CIA extends DeepState<CIA, State> {}
-
-class HSBC extends DeepStateContainer<CIA, State> {}
+class HSBC extends DeepStateContainer<State> {}
 
 // And a Main class to use it.
 class Main {
     static function main() {
-        var logger = new MiddlewareLog<CIA, State>();
-        var observable = new ds.Observable<CIA, State>();
-
-        // Instantiate your Contained Immutable Asset with an initial state
-        var asset = new CIA({
+        var initialState : State = {
             score: 0,
             player: {
                 firstName: "Wall",
@@ -35,7 +27,13 @@ class Main {
             },
             timestamps: [Date.now()],
             json: { name: "Meitner", place: "Ljungaverk", year: 1945 }
-        }, [logger.log, observable.observe]);
+        }
+
+        var logger = new MiddlewareLog<State>();
+        var observable = new ds.Observable<State>();
+
+        // Instantiate your Contained Immutable Asset with an initial state
+        var asset = new DeepState<State>(initialState, [logger.log, observable.observe]);
 
         //////////////////////////////////////////////////////////////////
 
@@ -88,7 +86,7 @@ class Main {
 
         //////////////////////////////////////////////////////////////////
 
-        var container = new HSBC(new CIA(CIA.defaultState()));
+        var container = new HSBC(new DeepState<State>(initialState));
 
         container.subscribe(container.state.score, score -> trace("Score updated."));
         container.update(container.state.score = score -> score + 10);
@@ -97,12 +95,12 @@ class Main {
     }
 }
 
-class MiddlewareLog<S : DeepState<S,T>, T> {
+class MiddlewareLog<T> {
     public function new() {}
 
     public final logs = new Array<{state: T, type: String, timestamp: Date}>();
 
-    public function log(state: S, next : Action -> S, action : Action) : S {
+    public function log(asset: ds.gen.DeepState<T>, next : Action -> ds.gen.DeepState<T>, action : Action) : ds.gen.DeepState<T> {
         // Get the next state
         var newState = next(action);
 
