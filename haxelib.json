@@ -12,7 +12,7 @@
 	"contributors": [
 		"ciscoheat"
 	],
-	"releasenote": "Better syntax for updates. Container state now updates before observable.",
-	"version": "0.10.0",
+	"releasenote": "DeepState is now generic, no inheritance required any longer.",
+	"version": "0.11.0",
 	"url": "http://github.com/ciscoheat/deepstate/"
 }

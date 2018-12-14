@@ -221,7 +221,7 @@ class DeepStateTests extends buddy.SingleSuite {
                 var a = new DeepState<TestState>(initialState);
                 a.state.person.name.firstName.should.be("Wall");
                 a = a.update(a.state.person.name.firstName = "Walle", "DSInstantiation");
-                a.state.person.name.firstName.should.be("Walle");
+                a.state.person.name.firstName.should.be("Walle");                
             });
 
             it("should update the whole state if specified", {
@@ -334,28 +334,23 @@ class DeepStateTests extends buddy.SingleSuite {
 
             it("should handle deep recursive updates", {
                 var rec = new DeepState<RecursiveState>({node: {node: {node: null, value: "3"}, value: "2"}, value: "1"});
-
                 rec.state.node.node.value.should.be("3");
                 var next = rec.update(rec.state.node.node.value = "A", "DeepRecursiveUpdate");
                 next.state.node.value.should.be("A");
             });
 
-            /*
-            it("has a 'defaultState' method for creating an asset", {
-                var asset = new DeepState<DefaultState>();
-
-                asset.state.score.should.be(0);
-                asset.state.person.name.firstName.should.be("");
-                asset.state.person.name.lastName.should.be("");
-                asset.state.date.should.not.be(null);
-                asset.state.date.getFullYear().should.beGreaterThan(2017);
-                asset.state.floats.length.should.be(0);
-            });
-            */
-
             /////////////////////////////////////////////////////////
 
             describe("The update method", {
+                /*
+                it("should be possible to refer to the state with a shorthand '_' var", {
+                    var next = asset.update(_.person.name.firstName = "Andre", "ShorthandUpdate");
+                    next.state.person.name.firstName.should.be("Andre");
+                    next = next.update(_.person.name.firstName = "Oscar", "ShorthandUpdate");
+                    next.state.person.name.firstName.should.be("Oscar");
+                });
+                */
+
                 it("should use a lambda function to update a field if passed a function", {
                     var next = asset.update(asset.state.score = score -> 1);
                     next = next.update(next.state.score = score -> score + 2, "LambdaUpdate");

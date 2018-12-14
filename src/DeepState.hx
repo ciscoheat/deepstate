@@ -178,6 +178,20 @@ class DeepState<T> {
         }
     }
 
+	// Debugging autocompletion is very tedious, so here's a helper method.
+    /*
+	public static function fileTrace(o : Dynamic, ?file : String)
+	{
+		file = Context.definedValue("filetrace");
+		if (file == null) file = "e:\\temp\\filetrace.txt";
+		
+		var f = try sys.io.File.append(file, false)
+		catch (e : Dynamic) sys.io.File.write(file, false);
+		f.writeString(Std.string(o) + "\n");
+		f.close();
+	}
+    */
+
     public static function _update(asset : Expr, args : Array<Expr>) {
         var actionType : Expr = null;
 

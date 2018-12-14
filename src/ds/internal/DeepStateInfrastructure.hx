@@ -260,7 +260,7 @@ class DeepStateInfrastructure {
                 super(initialState, _stateTypes, _stateTypes.get($v{stateTypeName}), middlewares);
             }
 
-            public function updateState(action : ds.Action) : $concreteType
+            @:noCompletion public function updateState(action : ds.Action) : $concreteType
                 return cast this._updateState(action);
 
             override function copy(newState, middlewares) : $concreteType
