@@ -85,6 +85,7 @@ class DeepStateInfrastructure {
 
     static public function genericBuild() {
         var checkedTypes = new RecursiveTypeCheck();
+        var isRecursive = false;
 
         function stateFieldType(type : Type) : MetaObjectType {
             //trace([for(key in checkedTypes.keys()) key]);
@@ -92,8 +93,10 @@ class DeepStateInfrastructure {
             return switch type {
                 case TEnum(t, params):
                     var enumType = t.get();
-                    if(checkedTypes.exists(enumType)) 
-                        Recursive(checkedTypes.key(enumType))
+                    if(checkedTypes.exists(enumType)) {
+                        isRecursive = true;
+                        Recursive(checkedTypes.key(enumType));
+                    }
                     else {
                         checkedTypes.mark(enumType);
                         Enumm;
@@ -121,8 +124,10 @@ class DeepStateInfrastructure {
                         case [["haxe"], "IMap"]: 
                             Context.error('State contains a mutable Map. Use ds.ImmutableMap instead.', Context.currentPos());
                         case _:
-                            if(checkedTypes.exists(type)) 
-                                Recursive(checkedTypes.key(type))
+                            if(checkedTypes.exists(type)) {
+                                isRecursive = true;
+                                Recursive(checkedTypes.key(type));
+                            }
                             else {
                                 checkedTypes.mark(type);
 
@@ -164,7 +169,7 @@ class DeepStateInfrastructure {
                     var typede = t.get();
                     //trace("TType: " + typede.name);
                     return if(checkedTypes.exists(typede)) {
-                        //trace("Type is recursive: " + typede.name);
+                        isRecursive = true;
                         Recursive(checkedTypes.key(typede));
                     }
                     else {
@@ -175,11 +180,6 @@ class DeepStateInfrastructure {
 
                 case TLazy(f):
                     stateFieldType(f());
-
-                case TMono(t):
-                    trace(t.get());
-                    Context.error('Unsupported mono.', Context.currentPos());
-                    //return null;
 
                 case x:
                     Context.error('Unsupported DeepState type: $x', Context.currentPos());
@@ -193,22 +193,16 @@ class DeepStateInfrastructure {
         //trace("--- Checkedtypes: " + [for(key in checkedTypes.keys()) key]);
 
         var stateType = switch Context.getLocalType() {
+            // Pass through generic parameters.
             case TInst(_, [t]): 
-                //trace("xxxxxxxxxxxxxxxxxxxxxxx");
                 switch t {
                     case TInst(ref, params): switch ref.get().kind {
                         case KTypeParameter(_): return null;
                         case _:
                     }
-
                     case TType(ref, params):
-
-                    case x:
-                        //trace("Unsupported type: " + x);
-                        return null;
+                    case _: return null;
                 }
-                //trace(clsType);
-                //if(clsType.name != "DeepState") Context.warning(clsType, Context.currentPos());
                 t;
 
             case _:
@@ -243,10 +237,18 @@ class DeepStateInfrastructure {
 
         var typePath = { name: clsName, pack: [] }
         var concreteType = TPath(typePath);
+        var metaMap = checkedTypes.map();
+
+        // Remove redundant keys if state isn't recursive.
+        if(!isRecursive) {
+            for(key in metaMap.keys()) if(key != stateTypeName) {
+                metaMap.remove(key);
+            }
+        }
 
             //static final _defaultState : $stateComplexType = ${defaultState(checkedTypes.getStr(stateTypeName))};
         var c = macro class $clsName extends ds.DeepState<$stateComplexType> {
-            static final _stateTypes : Map<String, ds.internal.MetaObjectType> = ${metaMapToExpr(checkedTypes.map())};
+            static final _stateTypes : Map<String, ds.internal.MetaObjectType> = ${metaMapToExpr(metaMap)};
 
             public function new(
                 initialState : $stateComplexType,
