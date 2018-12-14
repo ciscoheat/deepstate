@@ -1,3 +1,4 @@
+import DeepState as Ds;
 import ds.*;
 import haxe.macro.Expr;
 
@@ -30,13 +31,12 @@ class DeepStateContainer<T> {
     }
 
     @:noCompletion public function updateState(action : Action) : Void {
-        this.asset.updateState(action);
+        this.asset._updateState(action);
     }
-
     #end
 
     public macro function update(container : Expr, args : Array<Expr>) {
-        return DeepState._update(container, args);
+        return Ds._update(container, args);
     }
 
     public macro function subscribe(container : Expr, paths : Array<Expr>) {

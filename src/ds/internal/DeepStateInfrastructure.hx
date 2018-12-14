@@ -6,7 +6,7 @@ import haxe.macro.Expr;
 import haxe.macro.Type;
 import haxe.DynamicAccess;
 import ds.ImmutableArray;
-import DeepState.MetaObjectType;
+import ds.internal.MetaObjectType;
 
 using Lambda;
 using haxe.macro.TypeTools;
@@ -15,52 +15,76 @@ using haxe.macro.ExprTools;
 
 /**
  * A macro build class for checking that the state type is final,
- * and creating a path => type statec structure for quick access.
+ * and creating a path => type state structure for quick access.
  */
 class DeepStateInfrastructure {
+    static var typeCache = new Map<String, ComplexType>();
 
-    static public function build() {
-        var checkedTypes : RecursiveTypeCheck = null;
-
-        if(checkedTypes == null) {
-            var key = "deepStateTypes";
-            checkedTypes = new RecursiveTypeCheck();
-            Context.onGenerate(types -> {
-                for(t in types) switch t {
-                    case TInst(t, params):
-                        var inst = t.get();
-                        if(inst.pack.length == 0 && inst.name == "DeepState") {
-                            // TODO: Change this serialization to a method that overrides for each subclass.
-                            var map : Map<String, MetaObjectType> = if(inst.meta.has(key)) {
-                                var type = inst.meta.extract(key)[0].params[0].expr;
-                                //trace(type);
-                                switch type {
-                                    case EConst(CString(s)): 
-                                        inst.meta.remove(key);
-                                        cast haxe.Unserializer.run(s);
-                                    case _:
-                                        Context.error("Invalid DeepState metadata.", Context.currentPos());
-                                }
-                            } else {
-                                new Map<String, MetaObjectType>();
-                            }
-
-                            var checkedMap = checkedTypes.map();                            
-
-                            for(key in map.keys()) {
-                                checkedMap.set(key, map[key]);
-                            }
-
-                            //trace([for(key in checkedMap.keys()) key]);
-
-                            var serialized = haxe.Serializer.run(checkedMap);
-                            inst.meta.add(key, [macro $v{serialized}], Context.currentPos());
-                        }
-                    case _:
-                }
-                checkedTypes = null;
-            });
+    static function metaMapToExpr(fields : Map<String, MetaObjectType>) {
+        var values = [for(key in fields.keys()) {
+            //trace("----- " + key + " => " + fields[key]);
+            if(fields[key] != null)
+                macro $v{key} => ${metaToExpr(fields[key])};
+        }];
+        return {
+            expr: EArrayDecl(values),
+            pos: Context.currentPos()
         }
+    }
+
+    static function metaToExpr(meta : MetaObjectType) : Expr {
+        return switch meta {
+            case Bool: macro Bool;
+            case String: macro String;
+            case Int: macro Int;
+            case Int32: macro Int32;
+            case Int64: macro Int64;
+            case Float: macro Float;
+            case Date: macro Date;
+            case Enumm: macro Enumm;
+            case ImmutableList: macro ImmutableList;
+            case ImmutableJson: macro ImmutableJson;
+            case Recursive(type): macro Recursive($v{type});
+            case Anonymous(fields): macro Anonymous(${metaMapToExpr(fields)});
+            case Instance(cls, fields): macro Instance($v{cls}, ${metaMapToExpr(fields)});
+            case Array(type): macro Array(${metaToExpr(type)});
+            case Map(type): macro Map(${metaToExpr(type)});
+        }
+    }
+
+    static function defaultState(meta : MetaObjectType) : Expr {
+        function mapToAnon(fields : Map<String, MetaObjectType>) {
+            var values = [for(key in fields.keys()) {
+                field: key,
+                expr: defaultState(fields[key])
+            }];
+            return {
+                expr: EObjectDecl(values),
+                pos: Context.currentPos()
+            }
+        }
+
+        return switch meta {
+            case Bool: macro false;
+            case String: macro "";
+            case Int: macro 0;
+            case Int64: macro haxe.Int64.make(0,0);
+            case Float: macro 0.0;
+            case Date: macro Date.now();
+            case ImmutableJson: macro new haxe.DynamicAccess<Dynamic>();
+            //case Map(_): []; // RC5 feature
+            case Array(_): macro [];
+            case Recursive(_): macro null;
+            case Anonymous(fields): mapToAnon(fields);
+            case Instance(cls, _):
+                macro throw "Non-supported default value: " + $v{cls};
+            case _:
+                macro throw "Non-supported default value: " + $v{Std.string(meta)};
+        }
+    }
+
+    static public function genericBuild() {
+        var checkedTypes = new RecursiveTypeCheck();
 
         function stateFieldType(type : Type) : MetaObjectType {
             //trace([for(key in checkedTypes.keys()) key]);
@@ -72,7 +96,7 @@ class DeepStateInfrastructure {
                         Recursive(checkedTypes.key(enumType))
                     else {
                         checkedTypes.mark(enumType);
-                        Enum;
+                        Enumm;
                     }
 
                 case TAnonymous(a):
@@ -152,6 +176,11 @@ class DeepStateInfrastructure {
                 case TLazy(f):
                     stateFieldType(f());
 
+                case TMono(t):
+                    trace(t.get());
+                    Context.error('Unsupported mono.', Context.currentPos());
+                    //return null;
+
                 case x:
                     Context.error('Unsupported DeepState type: $x', Context.currentPos());
             }
@@ -163,7 +192,28 @@ class DeepStateInfrastructure {
 
         //trace("--- Checkedtypes: " + [for(key in checkedTypes.keys()) key]);
 
-        var stateType = cls.superClass.params[0];
+        var stateType = switch Context.getLocalType() {
+            case TInst(_, [t]): 
+                //trace("xxxxxxxxxxxxxxxxxxxxxxx");
+                switch t {
+                    case TInst(ref, params): switch ref.get().kind {
+                        case KTypeParameter(_): return null;
+                        case _:
+                    }
+
+                    case TType(ref, params):
+
+                    case x:
+                        //trace("Unsupported type: " + x);
+                        return null;
+                }
+                //trace(clsType);
+                //if(clsType.name != "DeepState") Context.warning(clsType, Context.currentPos());
+                t;
+
+            case _:
+                Context.error("DeepState<T> class expected.", Context.currentPos());
+        }
         var stateTypeMeta = stateFieldType(stateType);
         var stateTypeName = switch stateType {
             case TType(t, _):
@@ -179,99 +229,43 @@ class DeepStateInfrastructure {
                 Context.error("Create a typedef of the state type, to use it in DeepState.", Context.currentPos());
             case x:
                 Context.error("Invalid state type: " + x, Context.currentPos());
-        }        
-
-        // Add a constructor if not defined
-        var fields = Context.getBuildFields();
-        if(!fields.exists(f -> f.name == "new")) {
-            fields.push({
-                access: [APublic],
-                kind: FFun({
-                    args: [
-                        {name: 'currentState', type: null},
-                        {name: 'middlewares', type: null, opt: true}
-                    ],
-                    expr: macro super(currentState, middlewares),
-                    ret: null
-                }),
-                name: "new",
-                pos: Context.currentPos()
-            });
-        }
-        else if(!fields.exists(f -> f.name == "copy")) {
-            Context.warning(
-                "'copy' method not overridden despite inherited constructor.", 
-                fields.find(f -> f.name == "new").pos
-            );
         }
 
-        fields.push({
-            access: [AOverride],
-            doc: "Internal function for accessing the state type.",
-            kind: FieldType.FFun({ 
-                args: [],
-                expr: macro return DeepState.stateTypes.get($v{stateTypeName}),
-                ret: macro : DeepState.MetaObjectType
-            }),
-            name: "stateType",
-            meta: [{
-                name: ":noCompletion", params: null, pos: Context.currentPos()
-            }],
-            pos: Context.currentPos()
-        });
+        var stateComplexType = Context.toComplexType(stateType);
+        var clsName = "DeepState_" + StringTools.replace(stateTypeName, ".", "_");
 
-        ///// Add a default function /////
+        //trace("===== " + cls.name + " " + stateType);// + " @ " + Context.currentPos());
+        //trace(stateComplexType);
+        //trace(clsName);
 
-        function defaultState(meta : MetaObjectType) : Expr {
-            function mapToAnon(fields : Map<String, MetaObjectType>) {
-                var values = [for(key in fields.keys()) {
-                    field: key,
-                    expr: defaultState(fields[key])
-                }];
-                return {
-                    expr: EObjectDecl(values),
-                    pos: Context.currentPos()
-                }
+        if(typeCache.exists(clsName))
+            return typeCache.get(clsName);
+
+        var typePath = { name: clsName, pack: [] }
+        var concreteType = TPath(typePath);
+
+            //static final _defaultState : $stateComplexType = ${defaultState(checkedTypes.getStr(stateTypeName))};
+        var c = macro class $clsName extends ds.DeepState<$stateComplexType> {
+            static final _stateTypes : Map<String, ds.internal.MetaObjectType> = ${metaMapToExpr(checkedTypes.map())};
+
+            public function new(
+                initialState : $stateComplexType,
+                middlewares : ds.ImmutableArray<ds.Middleware<$stateComplexType>> = null
+            ) {
+                super(initialState, _stateTypes, _stateTypes.get($v{stateTypeName}), middlewares);
             }
 
-            return switch meta {
-                case Bool: macro false;
-                case String: macro "";
-                case Int: macro 0;
-                case Int64: macro haxe.Int64.make(0,0);
-                case Float: macro 0.0;
-                case Date: macro Date.now();
-                case ImmutableJson: macro new haxe.DynamicAccess<Dynamic>();
-                //case Map(_): []; // RC5 feature
-                case Array(_): macro [];
-                case Recursive(_): macro null;
-                case Anonymous(fields): mapToAnon(fields);
-                case Instance(cls, _):
-                    macro throw "Non-supported default value: " + $v{cls};
-                case _:
-                    macro throw "Non-supported default value: " + $v{Std.string(meta)};
-            }
+            public function updateState(action : ds.Action) : $concreteType
+                return cast this._updateState(action);
+
+            override function copy(newState, middlewares) : $concreteType
+                return new $typePath(newState, middlewares);
         }
 
-        fields.push({
-            access: [AStatic, APublic],
-            doc: "Returns a default state, that can be used to create a new asset. Will throw if some values cannot be created.",
-            kind: FieldType.FFun({ 
-                args: [],
-                expr: macro return ${defaultState(stateTypeMeta)},
-                ret: Context.toComplexType(stateType)
-            }),
-            name: "defaultState",
-            meta: [{
-                name: ":noCompletion", params: null, pos: Context.currentPos()
-            }],
-            pos: Context.currentPos()
-        });
+        Context.defineType(c);
+        typeCache.set(clsName, concreteType);
 
-        //trace("===== " + cls.name);
-        //trace(stateTypeMeta);
-
-        return fields;
+        return concreteType;
     }
 }
 

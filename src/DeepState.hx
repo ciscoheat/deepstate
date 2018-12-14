@@ -24,138 +24,13 @@ private typedef ActionUpdateExpr = {
 }
 #end
 
-/**
- * Used for describing the state tree and its types.
- */
-enum MetaObjectType {
-    Bool;
-    String;
-    Int;
-    Int32;
-    Int64;
-    Float;
-    Date;
-    Enum;
-    ImmutableList;
-    ImmutableJson;
-    Recursive(type : String);
-    Anonymous(fields: Map<String, MetaObjectType>);
-    Instance(cls: String, fields: Map<String, MetaObjectType>);
-    Array(type: MetaObjectType); // Always an ImmutableArray
-    Map(type: MetaObjectType); // Always an ImmutableMap
-}
-
 /////////////////////////////////////////////////////////////////////
 
-@:autoBuild(ds.internal.DeepStateInfrastructure.build())
+#if !macro
+@:genericBuild(ds.internal.DeepStateInfrastructure.genericBuild())
+#end
 class DeepState<T> {
-    #if !macro
-
-    // All state types T created by the build macro
-    @:noCompletion public static var stateTypes : Map<String, MetaObjectType>
-        = cast haxe.Unserializer.run(haxe.rtti.Meta.getType(DeepState).deepStateTypes[0]);
-
-    // Automatically overridden in inherited classes by build macro
-    @:noCompletion function stateType() : MetaObjectType { return null; }
-
-    public final state : T;
-    final middlewares : ImmutableArray<Middleware<T>>;
-
-    public function new(currentState : T, middlewares : ImmutableArray<Middleware<T>> = null) {
-        if(currentState == null) throw "currentState is null";
-        this.state = currentState;
-        this.middlewares = middlewares == null ? [] : middlewares;
-    }
-
-    /////////////////////////////////////////////////////////////////
-
-    // Override if you create an inherited constructor.
-    @:allow(DeepStateContainer)
-    function copy(newState : T, middlewares : ImmutableArray<Middleware<T>>) : DeepState<T> {
-        return cast Type.createInstance(Type.getClass(this), [newState, middlewares]);
-    }
-
-    /**
-     * Make a copy of a state object, replacing a value in the state.
-     * All references except the new value will be kept.
-     */
-    @:noCompletion function createAndReplace(currentState : T, path : ImmutableArray<Action.PathAccess>, newValue : Any) : T {
-        function error() { throw "Invalid DeepState update: " + path + " (" + newValue + ")"; }
-
-        var iter = path.iterator();
-        function createNew(currentObject : Any, curState : MetaObjectType) : Any {
-            trace(currentObject + " - " + curState);
-            if(!iter.hasNext()) return newValue
-            else switch iter.next() {
-                case Field(name): switch curState {
-                    case Anonymous(fields):
-                        var data = Reflect.copy(currentObject);
-                        Reflect.setField(data, name, createNew(Reflect.field(currentObject, name), fields.get(name)));
-                        return data;
-
-                    case Instance(cls, fields):
-                        // Create a new class with data constructor
-                        var data = new haxe.DynamicAccess<Dynamic>();
-
-                        // If problems, use getProperty instead of field.
-                        for(f in fields.keys())
-                            data.set(f, Reflect.field(currentObject, f));
-
-                        data.set(name, createNew(Reflect.field(currentObject, name), fields.get(name)));
-
-                        return Type.createInstance(Type.resolveClass(cls), [data]);
-
-                    case Recursive(type):
-                        return createNew(currentObject, stateTypes.get(type));
-
-                    case _: error();
-                }
-                case Array(index): switch curState {
-                    case Array(type):
-                        var newArray = (currentObject : Array<Dynamic>).copy();
-                        newArray[index] = createNew(newArray[index], type);
-                        return newArray;
-
-                    case _: error();
-                }
-                case Map(key): switch curState {
-                    case Map(type):
-                        var currentMap : ImmutableMap<Dynamic, Dynamic> = cast currentObject;
-                        return currentMap.set(key, createNew(currentMap.get(key), type));
-
-                    case _: error();
-                }
-
-            }
-            return null;
-        }
-
-        return createNew(currentState, this.stateType());
-    }
-
-    @:noCompletion public function updateState(action : Action) : DeepState<T> {
-        // Last function in middleware chain - create a new state.
-        function copyAndUpdateState(action : Action) : DeepState<T> {
-            trace(action);
-            var newState = this.state;
-            for(a in action.updates) {
-                newState = createAndReplace(newState, a.path, a.value);
-            }
-            return this.copy(newState, this.middlewares);
-        }
-
-        // Apply middleware
-        var dispatch : Action -> DeepState<T> = copyAndUpdateState;
-        for(m in middlewares.reverse())
-            dispatch = m.bind(cast this, dispatch);
-
-        return dispatch(action);
-    }
-    #else
-
-      ////////////////////////////////////////////////////////////////
-     //// Macro code ////////////////////////////////////////////////
-    ////////////////////////////////////////////////////////////////
+    #if macro
 
     // Test if types unify by trying to assign a temp var with the new value
     static function unifies(type : ComplexType, value : Expr) return try {
@@ -365,13 +240,4 @@ class DeepState<T> {
     }
 
     #end
-
-    /**
-     * Updates the asset
-     * @param asset 
-     * @param args 
-     */
-    public macro function update(asset : Expr, args : Array<Expr>) {
-        return _update(asset, args);
-    }
 }
