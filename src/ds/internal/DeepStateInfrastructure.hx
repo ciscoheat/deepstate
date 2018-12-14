@@ -18,7 +18,6 @@ using haxe.macro.ExprTools;
  * and creating a path => type state structure for quick access.
  */
 class DeepStateInfrastructure {
-    static var typeCache = new Map<String, ComplexType>();
 
     static function metaMapToExpr(fields : Map<String, MetaObjectType>) {
         var values = [for(key in fields.keys()) {
@@ -52,6 +51,7 @@ class DeepStateInfrastructure {
         }
     }
 
+    /*
     static function defaultState(meta : MetaObjectType) : Expr {
         function mapToAnon(fields : Map<String, MetaObjectType>) {
             var values = [for(key in fields.keys()) {
@@ -82,6 +82,7 @@ class DeepStateInfrastructure {
                 macro throw "Non-supported default value: " + $v{Std.string(meta)};
         }
     }
+    */
 
     static public function genericBuild() {
         var checkedTypes = new RecursiveTypeCheck();
@@ -229,11 +230,13 @@ class DeepStateInfrastructure {
         var clsName = "DeepState_" + StringTools.replace(stateTypeName, ".", "_");
 
         //trace("===== " + cls.name + " " + stateType);// + " @ " + Context.currentPos());
-        //trace(stateComplexType);
-        //trace(clsName);
+        //trace(stateComplexType); trace(clsName);
 
-        if(typeCache.exists(clsName))
-            return typeCache.get(clsName);
+        // Test if type is defined already
+        try {
+            var type = Context.getType(clsName);
+            return Context.toComplexType(type);
+        } catch(e : String) {}
 
         var typePath = { name: clsName, pack: [] }
         var concreteType = TPath(typePath);
@@ -265,8 +268,6 @@ class DeepStateInfrastructure {
         }
 
         Context.defineType(c);
-        typeCache.set(clsName, concreteType);
-
         return concreteType;
     }
 }
