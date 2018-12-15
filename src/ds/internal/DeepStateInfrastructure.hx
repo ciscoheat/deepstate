@@ -99,6 +99,17 @@ class DeepStateInfrastructure {
                         Recursive(checkedTypes.key(enumType));
                     }
                     else {
+                        // Check immutability
+                        for(p in params) stateFieldType(p);
+                        for(c in enumType.constructs) {
+                            switch c.type {
+                                case TFun(args, _): for(a in args) stateFieldType(a.t);
+                                case _: Context.error("Expected enum constructor", Context.currentPos());
+                            }
+                            for(p in c.params) stateFieldType(p.t);
+                        }
+                        for(p in enumType.params) stateFieldType(p.t);
+
                         checkedTypes.mark(enumType);
                         Enumm;
                     }
@@ -116,6 +127,10 @@ class DeepStateInfrastructure {
 
                 case TInst(t, _):
                     var type = t.get();
+                    var isTypeParam = switch type.kind {
+                        case KTypeParameter(_): true;
+                        case _: false;
+                    }
 
                     switch [type.pack, type.name] {
                         case [[], "String"]: String;
@@ -130,7 +145,8 @@ class DeepStateInfrastructure {
                                 Recursive(checkedTypes.key(type));
                             }
                             else {
-                                checkedTypes.mark(type);
+                                if(!isTypeParam)
+                                    checkedTypes.mark(type);
 
                                 var fields = new Map<String, MetaObjectType>();
                                 for(field in type.fields.get()) switch field.kind {
@@ -143,8 +159,11 @@ class DeepStateInfrastructure {
                                 }
                                 
                                 var clsName = haxe.macro.MacroStringTools.toDotPath(type.pack, type.name);
+                                var inst = Instance(clsName, fields);
                                 //trace("TInst: " + clsName);
-                                checkedTypes.set(type, Instance(clsName, fields));
+
+                                if(!isTypeParam) checkedTypes.set(type, inst)
+                                else inst;
                             }
                         }
 
@@ -169,6 +188,10 @@ class DeepStateInfrastructure {
                 case TType(t, params):
                     var typede = t.get();
                     //trace("TType: " + typede.name);
+
+                    for(p in params) stateFieldType(p);
+                    for(p in typede.params) stateFieldType(p.t);
+
                     return if(checkedTypes.exists(typede)) {
                         isRecursive = true;
                         Recursive(checkedTypes.key(typede));
@@ -194,7 +217,7 @@ class DeepStateInfrastructure {
         //trace("--- Checkedtypes: " + [for(key in checkedTypes.keys()) key]);
 
         var stateType = switch Context.getLocalType() {
-            // Pass through generic parameters.
+            // Let the compiler infer generic type parameters.
             case TInst(_, [t]): 
                 switch t {
                     case TInst(ref, params): switch ref.get().kind {
@@ -202,14 +225,18 @@ class DeepStateInfrastructure {
                         case _:
                     }
                     case TType(ref, params):
-                    case _: return null;
+
+                    case TAnonymous(_):
+                        Context.error("Create a typedef of this anonymous type, to use it in DeepState.", Context.currentPos());
+
+                    case x: 
+                        Context.error("Invalid state type: " + x, Context.currentPos());
                 }
                 t;
 
             case _:
                 Context.error("DeepState<T> class expected.", Context.currentPos());
         }
-        var stateTypeMeta = stateFieldType(stateType);
         var stateTypeName = switch stateType {
             case TType(t, _):
                 var t = t.get();
@@ -220,17 +247,10 @@ class DeepStateInfrastructure {
             case TEnum(t, _):
                 var t = t.get();
                 t.pack.toDotPath(t.name);
-            case TAnonymous(_):
-                Context.error("Create a typedef of the state type, to use it in DeepState.", Context.currentPos());
             case x:
                 Context.error("Invalid state type: " + x, Context.currentPos());
         }
-
-        var stateComplexType = Context.toComplexType(stateType);
         var clsName = "DeepState_" + StringTools.replace(stateTypeName, ".", "_");
-
-        //trace("===== " + cls.name + " " + stateType);// + " @ " + Context.currentPos());
-        //trace(stateComplexType); trace(clsName);
 
         // Test if type is defined already
         try {
@@ -238,16 +258,27 @@ class DeepStateInfrastructure {
             return Context.toComplexType(type);
         } catch(e : String) {}
 
+        ///////////////////////////////////////////////////
+
+        var stateTypeMeta = stateFieldType(stateType);
+        var stateComplexType = Context.toComplexType(stateType);
+
+        //trace("===== " + cls.name + " " + stateType);
+        //trace(Context.currentPos());
+        //trace(stateComplexType); trace(clsName);
+
         var typePath = { name: clsName, pack: [] }
         var concreteType = TPath(typePath);
         var metaMap = checkedTypes.map();
 
         // Remove redundant keys if state isn't recursive.
+        /*
         if(!isRecursive) {
             for(key in metaMap.keys()) if(key != stateTypeName) {
                 metaMap.remove(key);
             }
         }
+        */
 
             //static final _defaultState : $stateComplexType = ${defaultState(checkedTypes.getStr(stateTypeName))};
         var c = macro class $clsName extends ds.gen.DeepState<$stateComplexType> {
@@ -295,6 +326,7 @@ abstract RecursiveTypeCheck(Map<String, Null<MetaObjectType>>) {
 
     public function mark(t : {pack : Array<String>, name: String}) {
         var typeName = key(t);
+        //trace('--Marking $typeName');
         if(this.exists(typeName)) throw "Checked type exists: " + typeName;
 
         this.set(typeName, null);
