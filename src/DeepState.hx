@@ -12,13 +12,13 @@ using haxe.macro.TypeTools;
 
 // Intermediary enum, used to test for duplicate actions before
 // transforming it to to Action.
-private enum PathAccessExpr {
+enum PathAccessExpr {
     Field(name : String);
     Array(e : Expr);
     Map(e : Expr);
 }
 
-private typedef ActionUpdateExpr = {
+typedef ActionUpdateExpr = {
     var path : Array<PathAccessExpr>;
     var value : Expr;
 }
@@ -38,44 +38,46 @@ class DeepState<T> {
         true;
     } catch(e : Dynamic) false;
 
+    public static function pathAccessExpr(e : Expr) : Array<PathAccessExpr> {
+        // Detects the initial "asset.state" reference.
+        var filterPath = true;
+        var paths = new Array<PathAccessExpr>();
+
+        function _parseUpdateExpr(e : Expr) switch e.expr {
+            case EField(e1, name): 
+                if(name == "state") filterPath = false
+                else if(filterPath) paths.push(Field(name));
+                _parseUpdateExpr(e1);
+
+            case EArray(e1, e2):
+                paths.push(unifies(intType, e2)
+                    ? Array(e2)
+                    : Map(e2)
+                );
+                _parseUpdateExpr(e1);
+
+            case EConst(CIdent(name)):
+                if(name == "state") filterPath = false 
+                else if(filterPath) paths.push(Field(name));
+
+            case x:
+                Context.error("Invalid DeepState update expression.", e.pos);
+        }
+        _parseUpdateExpr(e);
+
+        paths.reverse();
+        return paths;
+    }
+
     // Used when testing if array access is for Array or Map
     static var intType = TPath({name: "Int", pack: []});
 
     static function _updateField(path : Expr, pathType : haxe.macro.Type, newValue : Expr) : ActionUpdateExpr {
         return if(!unifies(Context.toComplexType(pathType), newValue)) {
             Context.error("Value should be of type " + pathType.toString(), newValue.pos);
-        } else {
-            // Detects the initial "asset.state" reference.
-            var filterPath = true;
-            var paths = new Array<PathAccessExpr>();
-
-            function parseUpdateExpr(e : Expr) switch e.expr {
-                case EField(e1, name): 
-                    if(name == "state") filterPath = false
-                    else if(filterPath) paths.push(Field(name));
-                    parseUpdateExpr(e1);
-
-                case EArray(e1, e2):
-                    paths.push(unifies(intType, e2)
-                        ? Array(e2)
-                        : Map(e2)
-                    );
-                    parseUpdateExpr(e1);
-
-                case EConst(CIdent(name)):
-                    if(name == "state") filterPath = false 
-                    else if(filterPath) paths.push(Field(name));
-
-                case x:
-                    Context.error("Invalid DeepState update expression.", e.pos);
-            }
-            parseUpdateExpr(path);
-            paths.reverse();
-
-            { 
-                path: paths,
-                value: newValue
-            }
+        } else { 
+            path: pathAccessExpr(path),
+            value: newValue
         }
     }
 

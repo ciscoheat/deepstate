@@ -86,7 +86,7 @@ class Main {
 
         //////////////////////////////////////////////////////////////////
 
-        var container = new HSBC(new DeepState<State>(initialState));
+        var container = new DeepStateContainer(new DeepState<State>(initialState));
 
         container.subscribe(container.state.score, score -> trace("Score updated."));
         container.update(container.state.score = score -> score + 10);

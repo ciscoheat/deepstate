@@ -12,13 +12,15 @@ import haxe.Constraints;
 
 using buddy.Should;
 
+typedef Name = {
+    final firstName : String;
+    final lastName : String;
+}
+
 typedef TestState = {
     final score : Int;
     final person : {
-        final name : {
-            final firstName : String;
-            final lastName : String;
-        };
+        final name : Name;
         final tags : ImmutableArray<{
             final name : String;
         }>;
@@ -803,6 +805,28 @@ class DeepStateTests extends buddy.SingleSuite {
                 container.state.age.should.be(20);
 
                 ages.should.containExactly([10,20]);
+            });
+
+            it("should be able to create substates that updates the parent when updated", {
+                var log = new Array<String>();
+                var container = new DeepStateContainer<TestState>(asset);
+
+                container.subscribe(container.state.person.name.lastName, lastName -> log.push(lastName));
+                container.update(container.state.person.name.lastName = "Dulles");
+
+                log.length.should.be(1);
+                log[0].should.be("Dulles");
+
+                var sub = container.enclose(container.state.person.name);
+                //sub.subscribe(sub.state.lastName, n -> log.push("ParentChange: " + n));
+
+                // A typedef must exist, cannot create directly from an anonymous type.
+                CompilationShould.failFor(container.enclose(container.state.person));
+
+                sub.update(sub.state.lastName = "Duisberg", "EnclosureUpdate");
+
+                log.length.should.be(2);
+                log[1].should.be("Duisberg");
             });
         });
     }

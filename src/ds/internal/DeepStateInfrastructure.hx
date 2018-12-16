@@ -226,7 +226,7 @@ class DeepStateInfrastructure {
                     }
                     case TType(ref, params):
 
-                    case TAnonymous(_):
+                    case TAnonymous(a):
                         Context.error("Create a typedef of this anonymous type, to use it in DeepState.", Context.currentPos());
 
                     case x: 
@@ -294,9 +294,17 @@ class DeepStateInfrastructure {
             @:noCompletion public function updateState(action : ds.Action) : $concreteType
                 return cast this._updateState(action);
 
-            override function copy(newState, middlewares) : $concreteType
-                return new $typePath(newState, middlewares);
+            override function copy(
+                newState : $stateComplexType = null, 
+                middlewares : ds.ImmutableArray<ds.Middleware<$stateComplexType>> = null
+            ) : $concreteType {
+                return new $typePath(
+                    newState == null ? this.state : newState, 
+                    middlewares == null ? this.middlewares : middlewares
+                );
+            }
         }
+        c.meta.push({name: ":final", pos: c.pos});
 
         Context.defineType(c);
         return concreteType;

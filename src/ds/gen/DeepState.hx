@@ -41,7 +41,7 @@ class DeepState<T> {
     }
 
     @:allow(DeepStateContainer)
-    function copy(newState : T, middlewares : ImmutableArray<Middleware<T>>) : DeepState<T> {
+    function copy(newState : T = null, middlewares : ImmutableArray<Middleware<T>> = null) : DeepState<T> {
         throw "DeepStateBase.copy must be overridden in subclass.";
     }
 
@@ -49,7 +49,7 @@ class DeepState<T> {
      * Make a copy of a state object, replacing a value in the state.
      * All references except the new value will be kept.
      */
-    inline function _createAndReplace(currentState : T, path : ImmutableArray<Action.PathAccess>, newValue : Any) : T {
+    @:noCompletion inline function _createAndReplace(currentState : T, path : ImmutableArray<Action.PathAccess>, newValue : Any) : T {
         function error() { throw "Invalid DeepState update: " + path + " (" + newValue + ")"; }
 
         var iter = path.iterator();
@@ -104,7 +104,7 @@ class DeepState<T> {
         return createNew(currentState, this.stateType);
     }
 
-    @:allow(DeepStateContainer)
+    @:allow(DeepStateContainer) @:noCompletion 
     function _updateState<S : DeepState<T>>(action : Action) : S {
         // Last function in middleware chain - create a new state.
         function copyAndUpdateState(action : Action) : DeepState<T> {
