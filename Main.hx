@@ -1,13 +1,15 @@
 import ds.Action;
 
+typedef Name = {
+    final firstName : String;
+    final lastName : String;
+}
+
 // This is your program state, where all fields must be final.
 typedef State = {
     final score : Int;
     // Nested structures are supported, as long as all fields are final.
-    final player : {
-        final firstName : String;
-        final lastName : String;
-    }
+    final player : Name;
     // Prefix Array, List and Map with "ds.Immutable"
     final timestamps : ds.ImmutableArray<Date>;
     // For json structures:
@@ -90,6 +92,8 @@ class Main {
 
         container.subscribe(container.state.score, score -> trace("Score updated."));
         container.update(container.state.score = score -> score + 10);
+        var sub = container.enclose(container.state.score);
+        sub.update(sub.state = 20);
 
         trace(container.state.score);
     }

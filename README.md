@@ -118,7 +118,7 @@ Run the test with: `haxe -x Main -lib deepstate`
 
 Lets make the famous Redux time machine! Middleware is a function that takes three arguments:
 
-1. **asset:** An asset `DeepState<T>`, which is always the state before any middleware is applied
+1. **asset:** An asset, `DeepState<T>`, which always contains the state before any middleware is applied
 1. **next:** A function that will pass an `Action` to the next middleware
 1. **action:** The current `Action`, that should be passed to `next` if no changes will be made.
 
@@ -214,9 +214,9 @@ var subscriber = observable.subscribe((prev, current) -> {
 
 ## DeepStateContainer
 
-The goal of DeepState is to create a contained and controlled state. There has to be a mutable reference point for the program state somewhere, otherwise the program wouldn't show any updates. This poses the question why the asset can't contain a mutable state? It's possible, but opens up to two problematic scenarios:
+The goal of DeepState is to create a contained and controlled state. There has to be a mutable reference point for the program state somewhere, otherwise the program wouldn't have any current state to refer to. This poses the question why the asset can't contain a mutable state? It's possible, but opens up to two problematic scenarios:
 
-- Any part of the program could update the asset and mutate its state, which isn't very contained compared to having full control over the asset by returning a new asset on every update.
+- Any part of the program could update the asset and mutate its state, which isn't very contained, compared to having full control over the asset by returning a new asset on every update.
 - Using methods in the asset for updating the state. You get more control, but as the number of methods grows, the asset becomes defragmented and increasingly difficult to maintain and overview.
 
 Because of this the asset will be kept completely immutable, which is great if you're creating a game that executes in a game loop. Then you can just pass the new state along in the loop, and at the end update the mutable state reference, so the game can use the new state in the next run of the loop.
@@ -224,9 +224,7 @@ Because of this the asset will be kept completely immutable, which is great if y
 Web frameworks don't work like this though, so a container can be useful here, acting like a MVC Model that can be passed around to the Views. A `DeepStateContainer` has been created for this purpose. It will contain a state that changes on each call to `update`, and comes with an observer as well. Here's a usage example:
 
 ```haxe
-class HSBC extends DeepStateContainer<State> {}
-
-var container = new HSBC(new DeepState<State>(initialState));
+var container = new DeepStateContainer(new DeepState<State>(initialState));
 
 container.subscribe(container.state.player, player -> trace("Player updated."));
 container.update(container.state.score = score -> score + 10);
@@ -234,15 +232,46 @@ container.update(container.state.score = score -> score + 10);
 trace(container.state);
 ```
 
-The default constructor for the container is `new Container(asset, middlewares = null, observable = null)`, meaning that you can pass additional middlewares and a custom observable to the container. It's useful for keeping track of other middleware, such as logging.
+### Extending the container
+
+The container can be extended, and its default constructor is `new DeepStateContainer<T>(asset, middlewares = null, observable = null)`, meaning that you can pass additional middlewares and a custom observable to the container (replacing the default one). The extended class is also useful for keeping track of other middleware, such as logging.
+
+### Enclosing the container
+
+A `DeepStateContainer` can be *enclosed*, meaning that you can enclose a part of it, so you will have a new container that operates on just a part of the state tree. This is simple to do:
+
+```haxe
+// The state you're enclosing must have its own typedef.
+typedef Player = {
+    final firstName : String;
+    final lastName : String;
+}
+
+typedef State = {
+    final score : Int;
+    final player : Player;
+}
+
+var container = new DeepStateContainer<State>(new DeepState<State>(initialState));
+
+// Enclosing state.player from a DeepState<State> container.
+var enclosure = container.enclose(container.state.player);
+
+// Will update container.state.player as well as its own state.
+enclosure.update(enclosure.state.firstName);
+```
+
+As you see, when you update the enclosed container it will also update its surrounding state container. Again this is useful in MVC, letting the View focus on only what's relevant for its Model.
+
+A limitation is that an enclosed container cannot contain any middleware, since it basically just delegates actions to another container's asset. It has an observer like a normal container though.
 
 ## DataClass support
 
-The library [DataClass](https://github.com/ciscoheat/dataclass) is a nice supplement to deepstate, since it has got validation, null checks, JSON export, etc, for your data. It works out-of-the-box, simply create a DataClass with only final fields, and use it as `T` in `DeepState<S, T>`.
+The library [DataClass](https://github.com/ciscoheat/dataclass) is a nice supplement to deepstate, since it has got validation, null checks, JSON export, etc, for your data. It works out-of-the-box, simply create a DataClass with only final fields, and use it as `T` in `DeepState<T>`.
 
 ## Listing all actions
 
-If you want to list all actions in your code, use `-D deepstate-list-actions` as a compilation define.
+If you want to list all actions in your code, add `-D deepstate-list-actions` as a compilation define.
 
 ## Roadmap
 
@@ -254,7 +283,9 @@ The API is getting stable, but there could be minor changes. The aim is to suppo
 - [x] Making the asset itself immutable, instead of treating it as a state container
 - [x] Default state initialization
 - [x] Support for objects with a Map-like interface
-- [ ] Generic/composable assets
+- [x] Generic/composable assets
+- [ ] Brief syntax for updates
+- [ ] State validation
 - [ ] Your choice! Create an issue to join in.
 
 [![Build Status](https://travis-ci.org/ciscoheat/deepstate.svg?branch=master)](https://travis-ci.org/ciscoheat/deepstate)
