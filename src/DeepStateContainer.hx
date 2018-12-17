@@ -13,19 +13,9 @@ class DeepStateContainer<T> {
     public var state(get, never) : T;
     function get_state() : T return this.asset.state;
 
-    public function new(
-        asset : DeepState<T>, 
-        middlewares : ImmutableArray<Middleware<T>> = null, 
-        observable : Observable<T> = null
-    ) {        
-        this.observable = if(observable == null) observable = new Observable<T>()
-        else observable;
-
-        this.asset = if(asset == null) null
-        else {
-            if(middlewares == null) middlewares = [];
-            asset.copy(asset.state, middlewares.concat([updateAsset]));
-        }
+    public function new(asset : DeepState<T>, observable : Observable<T> = null) {
+        this.observable = observable == null ? new Observable<T>() : observable;
+        this.asset = asset == null ? null : asset.copy(asset.state, asset.middlewares.concat([updateAsset]));
     }
 
     function updateAsset(asset, next, action) {
@@ -39,7 +29,7 @@ class DeepStateContainer<T> {
     @:noCompletion public function updateState(action : Action) : Void {
         this.asset._updateState(action);
     }
-
+    
     #end
 
     public macro function enclose(container : Expr, statePath : Expr, observable : Expr = null) {
@@ -82,7 +72,7 @@ class EnclosedDeepStateContainer<T> extends DeepStateContainer<T> {
         statePath : ImmutableArray<Action.PathAccess>,
         observable : Observable<T> = null
     ) {
-        super(null, null, observable);
+        super(null, observable);
 
         this.encompassing = encompassing;
         this.stateAccessor = stateAccessor;

@@ -8,6 +8,8 @@ import DeepState as Ds;
 
 class DeepState<T> {
     public final state : T;
+
+    @:allow(DeepStateContainer)
     final middlewares : ImmutableArray<Middleware<T>>;
 
     // All state types created by the build macro
@@ -42,6 +44,7 @@ class DeepState<T> {
 
     @:allow(DeepStateContainer)
     function copy(newState : T = null, middlewares : ImmutableArray<Middleware<T>> = null) : DeepState<T> {
+        // Automatically done in DeepStateInfrastructure
         throw "DeepStateBase.copy must be overridden in subclass.";
     }
 

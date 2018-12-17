@@ -234,7 +234,7 @@ trace(container.state);
 
 ### Extending the container
 
-The container can be extended, and its default constructor is `new DeepStateContainer<T>(asset, middlewares = null, observable = null)`, meaning that you can pass additional middlewares and a custom observable to the container (replacing the default one). The extended class is also useful for keeping track of other middleware, such as logging.
+The container can be extended, and its default constructor is `new DeepStateContainer<T>(asset, observable = null)`, meaning that you can pass a custom observable to the container, replacing the default one. Middleware can be added when instantiating `asset`. The extended class is also useful for keeping track of other middleware, such as logging.
 
 ### Enclosing the container
 
