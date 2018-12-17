@@ -7,49 +7,57 @@ import haxe.macro.Context;
 
 class DeepStateContainer<T> {
     #if !macro
-    var asset : DeepState<T>;
+    var asset : Null<DeepState<T>>;
     final observable : ds.Observable<T>;
 
+    final encompassing : Null<DeepStateContainer<Dynamic>>;
+    final stateAccessor : Void -> T;
+    final statePath : ImmutableArray<Action.PathAccess>;
+
     public var state(get, never) : T;
-    function get_state() : T return asset.state;
+    function get_state() : T return stateAccessor();
 
-    public function new(asset : DeepState<T>, middlewares : ImmutableArray<Middleware<T>> = null, observable : Observable<T> = null) {
-        if(asset == null) throw "asset is null";
+    public function new(
+        asset : Null<DeepState<T>>, 
+        middlewares : ImmutableArray<Middleware<T>> = null, 
+        observable : Observable<T> = null, 
+
+        encompassing : DeepStateContainer<Dynamic> = null,
+        stateAccessor : Void -> T = null,
+        statePath : ImmutableArray<Action.PathAccess> = null
+    ) {
         if(observable == null) observable = new Observable<T>();
-
-        if(middlewares == null) middlewares = []; 
-        middlewares = middlewares.concat([updateAsset]);
-
         this.observable = observable;
-        this.asset = asset.copy(asset.state, middlewares);
+
+        if(encompassing == null) {
+            if(asset == null) throw "asset is null";
+            if(middlewares == null) middlewares = [];
+
+            this.asset = asset.copy(asset.state, middlewares.concat([updateAsset]));
+            this.encompassing = null;
+            this.stateAccessor = () -> this.asset.state;
+            this.statePath = null;            
+        } else {
+            if(asset != null) throw "asset must be null when creating an enclosure.";
+            this.asset = null;
+            this.encompassing = encompassing;
+            this.stateAccessor = stateAccessor;
+            this.statePath = statePath;
+        }
     }
 
     function updateAsset(asset, next, action) {
-        this.observable.observe(asset, (a) -> this.asset = next(a), action);
-        return this.asset;
+        return this.observable.observe(asset, (a) -> this.asset = next(a), action);
     }
 
     @:noCompletion public function createEnclosure<S>(
-        asset : DeepState<S>, 
+        encompassing : DeepStateContainer<Dynamic>,
+        stateAccessor : Void -> S,
         statePath : ImmutableArray<Action.PathAccess>, 
-        middlewares : ImmutableArray<Middleware<S>> = null, 
+        //middlewares : ImmutableArray<Middleware<S>> = null, 
         observable : Observable<S> = null
     ) : DeepStateContainer<S> {
-        var newMiddlewares : ImmutableArray<Middleware<S>> = middlewares == null ? [] : middlewares;
-        newMiddlewares = newMiddlewares.push((asset, next, action) -> {
-            var nextAsset = next(action);
-            this.updateState({
-                type: action.type,
-                updates: [{
-                    path: statePath,
-                    value: nextAsset.state
-                }]
-            });
-            return nextAsset;
-        });
-
-        
-        return new DeepStateContainer<S>(asset, newMiddlewares, observable);
+        return new DeepStateContainer<S>(null, null, observable, encompassing, stateAccessor, statePath);
     }
 
     @:noCompletion public function subscribeObserver(observer: Observer<T>, immediateCall : Null<T> = null) : Subscription {
@@ -57,7 +65,16 @@ class DeepStateContainer<T> {
     }
 
     @:noCompletion public function updateState(action : Action) : Void {
-        this.asset._updateState(action);
+        if(asset != null) this.asset._updateState(action)
+        else {
+            this.encompassing.updateState({
+                type: action.type,
+                updates: [for(u in action.updates) {
+                    path: this.statePath.concat(u.path),
+                    value: u.value
+                }]
+            });
+        }
     }
 
     #end
@@ -78,7 +95,7 @@ class DeepStateContainer<T> {
             case _: Context.error("Cannot create an enclosure on array or map access.", statePath.pos);
         }];
 
-        return macro container.createEnclosure(new DeepState<$enclosureType>($statePath), $a{paths}, $middlewares, $observable);
+        return macro container.createEnclosure(container, () -> $statePath, $a{paths}, $observable);
     }
 
     public macro function update(container : Expr, args : Array<Expr>) {

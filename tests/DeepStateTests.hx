@@ -807,26 +807,33 @@ class DeepStateTests extends buddy.SingleSuite {
                 ages.should.containExactly([10,20]);
             });
 
-            it("should be able to create substates that updates the parent when updated", {
+            it("should be able to enclose a container that updates its parent and vice versa", {
                 var log = new Array<String>();
                 var container = new DeepStateContainer<TestState>(asset);
 
                 container.subscribe(container.state.person.name.lastName, lastName -> log.push(lastName));
                 container.update(container.state.person.name.lastName = "Dulles");
+                container.state.person.name.lastName.should.be("Dulles");
 
                 log.length.should.be(1);
                 log[0].should.be("Dulles");
 
-                var sub = container.enclose(container.state.person.name);
-                //sub.subscribe(sub.state.lastName, n -> log.push("ParentChange: " + n));
-
                 // A typedef must exist, cannot create directly from an anonymous type.
                 CompilationShould.failFor(container.enclose(container.state.person));
 
-                sub.update(sub.state.lastName = "Duisberg", "EnclosureUpdate");
+                var sub = container.enclose(container.state.person.name);
 
+                sub.update(sub.state.lastName = "Duisberg", "EnclosureUpdate");
+                container.state.person.name.lastName.should.be("Duisberg");
+                sub.state.lastName.should.be("Duisberg");
                 log.length.should.be(2);
                 log[1].should.be("Duisberg");
+
+                container.update(container.state.person.name.lastName = "Schacht");
+                container.state.person.name.lastName.should.be("Schacht");
+                sub.state.lastName.should.be("Schacht");
+                log.length.should.be(3);
+                log[2].should.be("Schacht");
             });
         });
     }
