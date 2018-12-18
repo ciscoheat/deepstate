@@ -158,9 +158,12 @@ var asset = new DeepState<State>(initialState, [logger.log]);
 asset = asset.update(asset.state = logger.logs[0].state);
 ```
 
-### Accessing the asset middleware
+### Advanced middleware
 
-For advanced middleware, you might want to 
+Middleware can be self-modifying, by returning an asset with added or removed middleware. For that there are some methods available only when adding `using ds.MiddlewareAccess;` to a module:
+
+- `asset.middleware<T>() : ds.ImmutableArray<Middleware<T>>` - returns the asset's middleware chain.
+- `asset.copy(newState = null, middlewares = null)` - returns a copy of the asset, where you can replace any argument or leave them unchanged by passing `null` to the method.
 
 ## Async operations
 
