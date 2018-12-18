@@ -3,8 +3,11 @@ package ds.gen;
 import haxe.DynamicAccess;
 import ds.*;
 import ds.internal.MetaObjectType;
+#if macro
 import haxe.macro.Expr;
+import haxe.macro.Context;
 import ds.internal.DeepStateUpdate as Ds;
+#end
 
 class DeepState<T> {
     public final state : T;
@@ -33,11 +36,6 @@ class DeepState<T> {
 
     /////////////////////////////////////////////////////////////////
 
-    /**
-     * Updates the asset
-     * @param asset 
-     * @param args 
-     */
     public macro function update(asset : Expr, args : Array<Expr>) {
         return Ds._update(asset, args);
     }

@@ -1,8 +1,10 @@
+#if macro
 import ds.internal.DeepStateUpdate as Ds;
-import ds.*;
-import ds.gen.DeepState;
 import haxe.macro.Expr;
 import haxe.macro.Context;
+#end
+import ds.*;
+import ds.gen.DeepState;
 
 using ds.MiddlewareAccess;
 

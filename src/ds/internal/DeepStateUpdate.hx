@@ -1,5 +1,6 @@
 package ds.internal;
 
+#if macro
 import haxe.Unserializer;
 import haxe.DynamicAccess;
 import haxe.macro.Context;
@@ -190,6 +191,12 @@ class DeepStateUpdate {
     */
 
     public static function _update(asset : Expr, args : Array<Expr>) {
+        // Display mode have problems with checkDuplicateAction
+        if(Context.defined("display") || Context.defined("display-details")) {
+            var complexType = Context.toComplexType(Context.typeof(asset));
+            return macro (null : $complexType);
+        }
+
         var actionType : Expr = null;
 
         // Extract Action updates from the arguments
@@ -229,10 +236,6 @@ class DeepStateUpdate {
 
         checkDuplicateAction(asset, aTypeString, updates, aTypePos);
 
-        // Display mode and vshaxe diagnostics have some problems with this.
-        //if(Context.defined("display") || Context.defined("display-details")) 
-            //return macro null;
-
         var realUpdates = [for(u in updates) {
             var paths = [for(p in u.path) switch p {
                 case Field(name): macro ds.PathAccess.Field($v{name});
@@ -246,17 +249,10 @@ class DeepStateUpdate {
             }
         }];
 
-        //var complexType = Context.toComplexType(Context.typeof(asset));
         return macro $asset.updateState({
             type: $aType,
             updates: $a{realUpdates}
         });
-
-        /*
-        return {
-            expr: ECheckType(output, complexType),
-            pos: Context.currentPos()
-        }
-        */
     }
 }
+#end

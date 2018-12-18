@@ -288,7 +288,7 @@ class DeepStateInfrastructure {
             }
             */
 
-            public function updateState(action : ds.Action) : $concreteType
+            @:noCompletion public function updateState(action : ds.Action) : $concreteType
                 return cast(this._updateState(action), $concreteType);
 
             override function copyAsset(

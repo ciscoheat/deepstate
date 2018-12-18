@@ -12,7 +12,7 @@
 	"contributors": [
 		"ciscoheat"
 	],
-	"releasenote": "Removed middleware from DeepStateContainer instantiation.",
-	"version": "0.12.1",
+	"releasenote": "Fixed autocompletion for DeepState.update",
+	"version": "0.12.2",
 	"url": "http://github.com/ciscoheat/deepstate/"
 }
