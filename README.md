@@ -158,6 +158,10 @@ var asset = new DeepState<State>(initialState, [logger.log]);
 asset = asset.update(asset.state = logger.logs[0].state);
 ```
 
+### Accessing the asset middleware
+
+For advanced middleware, you might want to 
+
 ## Async operations
 
 No assumptions are made about the actions, which means that any future behavior can be supported. For example, to support Promises, let them gather the required data, and finally call `update`.

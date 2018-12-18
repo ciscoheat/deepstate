@@ -42,10 +42,10 @@ class DeepState<T> {
         return Ds._update(asset, args);
     }
 
-    @:allow(DeepStateContainer)
-    function copy(newState : T = null, middlewares : ImmutableArray<Middleware<T>> = null) : DeepState<T> {
+    @:allow(ds.MiddlewareAccess)
+    function copyAsset(newState : T = null, middlewares : ImmutableArray<Middleware<T>> = null) : DeepState<T> {
         // Automatically done in DeepStateInfrastructure
-        throw "DeepStateBase.copy must be overridden in subclass.";
+        throw "DeepState.copyAsset must be overridden in subclass.";
     }
 
     /**
@@ -115,7 +115,7 @@ class DeepState<T> {
             for(a in action.updates) {
                 newState = _createAndReplace(newState, a.path, a.value);
             }
-            return this.copy(newState, this.middlewares);
+            return this.copyAsset(newState, this.middlewares);
         }
 
         // Apply middleware

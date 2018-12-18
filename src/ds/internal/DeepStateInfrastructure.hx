@@ -271,15 +271,6 @@ class DeepStateInfrastructure {
         var concreteType = TPath(typePath);
         var metaMap = checkedTypes.map();
 
-        // Remove redundant keys if state isn't recursive.
-        /*
-        if(!isRecursive) {
-            for(key in metaMap.keys()) if(key != stateTypeName) {
-                metaMap.remove(key);
-            }
-        }
-        */
-
             //static final _defaultState : $stateComplexType = ${defaultState(checkedTypes.getStr(stateTypeName))};
         var c = macro class $clsName extends ds.gen.DeepState<$stateComplexType> {
             static final _stateTypes : Map<String, ds.internal.MetaObjectType> = ${metaMapToExpr(metaMap)};
@@ -300,7 +291,7 @@ class DeepStateInfrastructure {
             public function updateState(action : ds.Action) : $concreteType
                 return cast(this._updateState(action), $concreteType);
 
-            override function copy(
+            override function copyAsset(
                 newState : $stateComplexType = null, 
                 middlewares : ds.ImmutableArray<ds.Middleware<$stateComplexType>> = null
             ) : $concreteType {
