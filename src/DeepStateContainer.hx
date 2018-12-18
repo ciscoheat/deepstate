@@ -1,9 +1,10 @@
-import haxe.macro.ExprTools;
-import DeepState as Ds;
+import ds.internal.DeepStateUpdate as Ds;
 import ds.*;
 import ds.gen.DeepState;
 import haxe.macro.Expr;
 import haxe.macro.Context;
+
+using ds.MiddlewareAccess;
 
 class DeepStateContainer<T> {
     #if !macro
@@ -15,10 +16,10 @@ class DeepStateContainer<T> {
 
     public function new(asset : DeepState<T>, observable : Observable<T> = null) {
         this.observable = observable == null ? new Observable<T>() : observable;
-        this.asset = asset == null ? null : asset.copy(asset.state, asset.middlewares.concat([updateAsset]));
+        this.asset = asset == null ? null : asset.copy(asset.state, asset.middleware().concat([updateMutableAsset]));
     }
 
-    function updateAsset(asset, next, action) {
+    function updateMutableAsset(asset, next, action) {
         return this.observable.observe(asset, (a) -> this.asset = next(a), action);
     }
 
@@ -29,7 +30,7 @@ class DeepStateContainer<T> {
     @:noCompletion public function updateState(action : Action) : Void {
         this.asset._updateState(action);
     }
-    
+
     #end
 
     public macro function enclose(container : Expr, statePath : Expr, observable : Expr = null) {
@@ -81,7 +82,7 @@ class EnclosedDeepStateContainer<T> extends DeepStateContainer<T> {
 
     override function get_state() : T return stateAccessor();
 
-    override function updateAsset(asset, next, action) {
+    override function updateMutableAsset(asset, next, action) {
         return this.observable.observe(asset, next, action);
     }
 

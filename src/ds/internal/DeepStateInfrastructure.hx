@@ -291,8 +291,14 @@ class DeepStateInfrastructure {
                 super(initialState, _stateTypes, _stateTypes.get($v{stateTypeName}), middlewares);
             }
 
-            @:noCompletion public function updateState(action : ds.Action) : $concreteType
-                return cast this._updateState(action);
+            /*
+            public macro function update(asset : haxe.macro.Expr, args : Array<haxe.macro.Expr>) {
+                return ds.internal.DeepStateUpdate._update(asset, args);
+            }
+            */
+
+            public function updateState(action : ds.Action) : $concreteType
+                return cast(this._updateState(action), $concreteType);
 
             override function copy(
                 newState : $stateComplexType = null, 

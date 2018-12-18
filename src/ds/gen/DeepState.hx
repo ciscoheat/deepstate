@@ -4,12 +4,12 @@ import haxe.DynamicAccess;
 import ds.*;
 import ds.internal.MetaObjectType;
 import haxe.macro.Expr;
-import DeepState as Ds;
+import ds.internal.DeepStateUpdate as Ds;
 
 class DeepState<T> {
     public final state : T;
 
-    @:allow(DeepStateContainer)
+    @:allow(ds.MiddlewareAccess)
     final middlewares : ImmutableArray<Middleware<T>>;
 
     // All state types created by the build macro
