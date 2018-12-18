@@ -265,7 +265,7 @@ var container = new DeepStateContainer<State>(new DeepState<State>(initialState)
 var enclosure = container.enclose(container.state.player);
 
 // Will update container.state.player as well as its own state.
-enclosure.update(enclosure.state.firstName);
+enclosure.update(enclosure.state.firstName = "Montagu");
 ```
 
 As you see, when you update the enclosed container it will also update its surrounding state container. Again this is useful in MVC, letting the View focus on only what's relevant for its Model.
