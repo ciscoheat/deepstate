@@ -138,12 +138,12 @@ class MiddlewareLog<T> {
     public final logs = new Array<{state: T, type: String, timestamp: Date}>();
 
     public function log(asset : DeepState<T>, next : Action -> DeepState<T>, action : Action) : DeepState<T> {
-        // Get the next state
-        var newState = next(action);
+        // Get the next asset
+        var nextAsset = next(action);
 
         // Log it and return it unchanged
-        logs.push({state: newState.state, type: action.type, timestamp: Date.now()});
-        return newState;
+        logs.push({state: nextAsset.state, type: action.type, timestamp: Date.now()});
+        return nextAsset;
     }
 }
 ```
