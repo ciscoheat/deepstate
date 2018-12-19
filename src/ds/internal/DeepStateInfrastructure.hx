@@ -51,39 +51,6 @@ class DeepStateInfrastructure {
         }
     }
 
-    /*
-    static function defaultState(meta : MetaObjectType) : Expr {
-        function mapToAnon(fields : Map<String, MetaObjectType>) {
-            var values = [for(key in fields.keys()) {
-                field: key,
-                expr: defaultState(fields[key])
-            }];
-            return {
-                expr: EObjectDecl(values),
-                pos: Context.currentPos()
-            }
-        }
-
-        return switch meta {
-            case Bool: macro false;
-            case String: macro "";
-            case Int: macro 0;
-            case Int64: macro haxe.Int64.make(0,0);
-            case Float: macro 0.0;
-            case Date: macro Date.now();
-            case ImmutableJson: macro new haxe.DynamicAccess<Dynamic>();
-            //case Map(_): []; // RC5 feature
-            case Array(_): macro [];
-            case Recursive(_): macro null;
-            case Anonymous(fields): mapToAnon(fields);
-            case Instance(cls, _):
-                macro throw "Non-supported default value: " + $v{cls};
-            case _:
-                macro throw "Non-supported default value: " + $v{Std.string(meta)};
-        }
-    }
-    */
-
     static public function genericBuild() {
         var checkedTypes = new RecursiveTypeCheck();
         var isRecursive = false;
@@ -271,7 +238,6 @@ class DeepStateInfrastructure {
         var concreteType = TPath(typePath);
         var metaMap = checkedTypes.map();
 
-            //static final _defaultState : $stateComplexType = ${defaultState(checkedTypes.getStr(stateTypeName))};
         var c = macro class $clsName extends ds.gen.DeepState<$stateComplexType> {
             static final _stateTypes : Map<String, ds.internal.MetaObjectType> = ${metaMapToExpr(metaMap)};
 
@@ -282,11 +248,9 @@ class DeepStateInfrastructure {
                 super(initialState, _stateTypes, _stateTypes.get($v{stateTypeName}), middlewares);
             }
 
-            /*
-            public macro function update(asset : haxe.macro.Expr, args : Array<haxe.macro.Expr>) {
-                return ds.internal.DeepStateUpdate._update(asset, args);
+            public static function test() {
+                return $v{clsName};
             }
-            */
 
             @:noCompletion public function updateState(action : ds.Action) : $concreteType
                 return cast(this._updateState(action), $concreteType);

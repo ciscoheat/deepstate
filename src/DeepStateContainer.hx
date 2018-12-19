@@ -18,7 +18,13 @@ class DeepStateContainer<T> {
 
     public function new(asset : DeepState<T>, observable : Observable<T> = null) {
         this.observable = observable == null ? new Observable<T>() : observable;
-        this.asset = asset == null ? null : asset.copy(asset.state, asset.middleware().concat([updateMutableAsset]));
+
+        if(asset == null) 
+            this.asset = null;
+        else {
+            this.asset = asset.copy(null, asset.middleware().concat([updateMutableAsset]));
+            this.update(this.state = asset.state);
+        }
     }
 
     function updateMutableAsset(asset, next, action) {

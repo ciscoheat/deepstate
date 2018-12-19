@@ -219,11 +219,15 @@ class DeepStateTests extends buddy.SingleSuite {
                 newState.state.should.not.be(initialState);
             }
 
-            it("should be possible to instantiate a DeepState object", {
+            it("should be possible to instantiate a DeepState object with a type parameter", {
                 var a = new DeepState<TestState>(initialState);
                 a.state.person.name.firstName.should.be("Wall");
                 a = a.update(a.state.person.name.firstName = "Walle", "DSInstantiation");
                 a.state.person.name.firstName.should.be("Walle");                
+            });
+
+            it("should throw if initial state is null", {
+                (function() new DeepState<TestState>(null)).should.throwType(String);
             });
 
             it("should update the whole state if specified", {

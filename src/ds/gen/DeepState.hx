@@ -22,29 +22,32 @@ class DeepState<T> {
     @:noCompletion final stateType : MetaObjectType;
 
     public function new(
-        initialState : T,
+        state : T,
         stateTypes : Map<String, MetaObjectType>, 
         stateType : MetaObjectType, 
         middlewares : ImmutableArray<Middleware<T>>
     ) {
-        if(initialState == null) throw "initialState is null";
-        this.state = initialState;
+        this.state = state == null ? throw "state is null" : state;
         this.stateTypes = stateTypes;
         this.stateType = stateType;
         this.middlewares = middlewares == null ? [] : middlewares;
     }
 
-    /////////////////////////////////////////////////////////////////
+    ///// Public interface //////////////////////////////////////////
 
     public macro function update(asset : Expr, args : Array<Expr>) {
         return Ds._update(asset, args);
     }
+
+    ///// Protected /////////////////////////////////////////////////
 
     @:allow(ds.MiddlewareAccess)
     function copyAsset(newState : T = null, middlewares : ImmutableArray<Middleware<T>> = null) : DeepState<T> {
         // Automatically done in DeepStateInfrastructure
         throw "DeepState.copyAsset must be overridden in subclass.";
     }
+
+    ///// Private /////////////////////////////////////////////////
 
     /**
      * Make a copy of a state object, replacing a value in the state.
@@ -77,7 +80,7 @@ class DeepState<T> {
                         return Type.createInstance(Type.resolveClass(cls), [data]);
 
                     case Recursive(type):
-                        return createNew(currentObject, this.stateType);
+                        return createNew(currentObject, this.stateTypes.get(type));
 
                     case _: error();
                 }
