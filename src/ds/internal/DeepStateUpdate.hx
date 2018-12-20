@@ -130,12 +130,12 @@ class DeepStateUpdate {
 
     /////////////////////////////////////////////////////////////////
 
-    static var typeNameCalls = new Map<String, {hash: String, pos: haxe.macro.Position}>();
     static function checkDuplicateAction(asset : Expr, actionType : String, updates : Array<ActionUpdateExpr>, pos) {
 
+        var cls : ClassType;
         var clsName = try switch Context.typeof(asset) {
             case TInst(t, _):
-                var cls = t.get();
+                cls = t.get();
                 cls.module + "." + cls.pack.join(".") + "." + cls.name + ".";
             case _:
                 Context.error("Asset is not a class.", asset.pos);
@@ -154,10 +154,21 @@ class DeepStateUpdate {
         }];
         updateHash.sort((a,b) -> a < b ? -1 : 1);
 
-        //trace(updateHash);
-
         var hashKey = clsName + actionType;
         var actionHash = ' => (' + updateHash.join(") (") + ')';
+
+        var typeNameCalls = [for(m in cls.meta.extract(':action')) {
+            var key = switch m.params[0].expr {
+                case EConst(CString(s)): s;
+                case _: Context.error("Invalid type hashkey", m.params[0].pos);
+            };
+            var hash = switch m.params[1].expr {
+                case EConst(CString(s)): s;
+                case _: Context.error("Invalid action hashkey", m.params[1].pos);
+            };
+
+            key => {hash: hash, pos: m.pos};
+        }];
 
         if(typeNameCalls.exists(hashKey)) {
             var typeHash = typeNameCalls.get(hashKey);
@@ -167,12 +178,11 @@ class DeepStateUpdate {
                 Context.warning(msg, typeHash.pos);
                 Context.error(msg, pos);
             }
-        }
-        else {
+        } else {
             #if deepstate_list_actions
             Context.warning('$actionType$actionHash', pos);
             #end
-            typeNameCalls.set(hashKey, {hash: actionHash, pos: pos});
+            cls.meta.add(":action", [macro $v{hashKey}, macro $v{actionHash}], pos);
         }
     }
 
