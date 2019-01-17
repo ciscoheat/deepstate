@@ -12,4 +12,10 @@ class MiddlewareAccess {
     ) : S {
         return cast asset.copyAsset(newState, middlewares);
     }
+
+    public static function allStateTypes<T>(asset : ds.gen.DeepState<T>) : Map<String, StateObjectType>
+        return asset.stateTypes;
+
+    public static function currentStateType<T>(asset : ds.gen.DeepState<T>) : StateObjectType
+        return asset.stateType;
 }

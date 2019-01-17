@@ -2,7 +2,6 @@ package ds.gen;
 
 import haxe.DynamicAccess;
 import ds.*;
-import ds.internal.MetaObjectType;
 #if macro
 import haxe.macro.Expr;
 import haxe.macro.Context;
@@ -16,15 +15,17 @@ class DeepState<T> {
     final middlewares : ImmutableArray<Middleware<T>>;
 
     // All state types created by the build macro
-    @:noCompletion final stateTypes : Map<String, MetaObjectType>;
+    @:allow(ds.MiddlewareAccess)
+    @:noCompletion final stateTypes : Map<String, StateObjectType>;
 
     // Current state type
-    @:noCompletion final stateType : MetaObjectType;
+    @:allow(ds.MiddlewareAccess)
+    @:noCompletion final stateType : StateObjectType;
 
     public function new(
         state : T,
-        stateTypes : Map<String, MetaObjectType>, 
-        stateType : MetaObjectType, 
+        stateTypes : Map<String, StateObjectType>, 
+        stateType : StateObjectType, 
         middlewares : ImmutableArray<Middleware<T>>
     ) {
         this.state = state == null ? throw "state is null" : state;
@@ -57,7 +58,7 @@ class DeepState<T> {
         function error() { throw "Invalid DeepState update: " + path + " (" + newValue + ")"; }
 
         var iter = path.iterator();
-        function createNew(currentObject : Any, curState : MetaObjectType) : Any {
+        function createNew(currentObject : Any, curState : StateObjectType) : Any {
             //trace(currentObject + " - " + curState);
             if(!iter.hasNext()) return newValue
             else switch iter.next() {

@@ -6,7 +6,7 @@ import haxe.macro.Expr;
 import haxe.macro.Type;
 import haxe.DynamicAccess;
 import ds.ImmutableArray;
-import ds.internal.MetaObjectType;
+import ds.StateObjectType;
 
 using Lambda;
 using haxe.macro.TypeTools;
@@ -19,7 +19,7 @@ using haxe.macro.ExprTools;
  */
 class DeepStateInfrastructure {
 
-    static function metaMapToExpr(fields : Map<String, MetaObjectType>) {
+    static function metaMapToExpr(fields : Map<String, StateObjectType>) {
         var values = [for(key in fields.keys()) {
             //trace("----- " + key + " => " + fields[key]);
             if(fields[key] != null)
@@ -31,7 +31,7 @@ class DeepStateInfrastructure {
         }
     }
 
-    static function metaToExpr(meta : MetaObjectType) : Expr {
+    static function metaToExpr(meta : StateObjectType) : Expr {
         return switch meta {
             case Bool: macro Bool;
             case String: macro String;
@@ -55,7 +55,7 @@ class DeepStateInfrastructure {
         var checkedTypes = new RecursiveTypeCheck();
         var isRecursive = false;
 
-        function stateFieldType(type : Type) : MetaObjectType {
+        function stateFieldType(type : Type) : StateObjectType {
             //trace([for(key in checkedTypes.keys()) key]);
 
             return switch type {
@@ -84,7 +84,7 @@ class DeepStateInfrastructure {
                     }
 
                 case TAnonymous(a):
-                    var fields = new Map<String, MetaObjectType>();
+                    var fields = new Map<String, StateObjectType>();
                     for(field in a.get().fields) switch field.kind {
                         case FVar(read, write) if(write == AccNever || write == AccCtor):
                             fields.set(field.name, stateFieldType(field.type));
@@ -117,7 +117,7 @@ class DeepStateInfrastructure {
                                 if(!isTypeParam)
                                     checkedTypes.mark(type);
 
-                                var fields = new Map<String, MetaObjectType>();
+                                var fields = new Map<String, StateObjectType>();
                                 for(field in type.fields.get()) switch field.kind {
                                     case FVar(_, write):
                                         if(write == AccNever || write == AccCtor)
@@ -239,7 +239,7 @@ class DeepStateInfrastructure {
         var metaMap = checkedTypes.map();
 
         var c = macro class $clsName extends ds.gen.DeepState<$stateComplexType> {
-            static final _stateTypes : Map<String, ds.internal.MetaObjectType> = ${metaMapToExpr(metaMap)};
+            static final _stateTypes : Map<String, ds.StateObjectType> = ${metaMapToExpr(metaMap)};
 
             public function new(
                 initialState : $stateComplexType,
@@ -271,9 +271,9 @@ class DeepStateInfrastructure {
 /////////////////////////////////////////////////////////////////////
 
 @:forward(keys)
-abstract RecursiveTypeCheck(Map<String, Null<MetaObjectType>>) {
+abstract RecursiveTypeCheck(Map<String, Null<StateObjectType>>) {
     inline public function new() 
-        this = new Map<String, Null<MetaObjectType>>();
+        this = new Map<String, Null<StateObjectType>>();
 
     public function get(t : {pack : Array<String>, name: String}) {
         var typeName = key(t);
@@ -297,9 +297,9 @@ abstract RecursiveTypeCheck(Map<String, Null<MetaObjectType>>) {
         this.set(typeName, null);
     }
 
-    public function set(t : {pack : Array<String>, name: String}, type : MetaObjectType) {
+    public function set(t : {pack : Array<String>, name: String}, type : StateObjectType) {
         var typeName = key(t);
-        if(type == null) throw "MetaObjectType is null.";
+        if(type == null) throw "StateObjectType is null.";
         if(this.exists(typeName) && this.get(typeName) != null) throw "Checked type wasn't null: " + typeName;
 
         this.set(typeName, type);

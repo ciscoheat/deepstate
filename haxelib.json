@@ -12,7 +12,7 @@
 	"contributors": [
 		"ciscoheat"
 	],
-	"releasenote": "Fixed compilation server problem when checking for duplicate actions.",
-	"version": "0.12.4",
+	"releasenote": "Fixed states with parameterless enums. Exposing metadata in MiddlewareAccess.",
+	"version": "0.13.0",
 	"url": "http://github.com/ciscoheat/deepstate/"
 }

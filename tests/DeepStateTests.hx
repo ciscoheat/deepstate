@@ -11,6 +11,7 @@ import haxe.macro.Expr;
 import haxe.Constraints;
 
 using buddy.Should;
+using ds.MiddlewareAccess;
 
 typedef Name = {
     final firstName : String;

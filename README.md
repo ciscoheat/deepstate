@@ -164,6 +164,8 @@ Middleware can be self-modifying, by returning an asset with added or removed mi
 
 - `asset.middleware<T>() : ds.ImmutableArray<Middleware<T>>` - returns the asset's middleware chain.
 - `asset.copy(newState = null, middlewares = null)` - returns a copy of the asset, where you can replace any argument or leave them unchanged by passing `null` to the method.
+- `asset.currentStateType()` - Metadata for the state.
+- `asset.allStateTypes()` - A map of metadata for all types in the state, useful for recursive types.
 
 ## Async operations
 
