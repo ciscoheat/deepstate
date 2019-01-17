@@ -71,7 +71,9 @@ class DeepStateInfrastructure {
                         for(c in enumType.constructs) {
                             switch c.type {
                                 case TFun(args, _): for(a in args) stateFieldType(a.t);
-                                case _: Context.error("Expected enum constructor", Context.currentPos());
+                                case TEnum(t, params) if(params.length == 0): // No constructor params
+                                case _: 
+                                    Context.error("Expected enum constructor", Context.currentPos());
                             }
                             for(p in c.params) stateFieldType(p.t);
                         }
@@ -181,8 +183,6 @@ class DeepStateInfrastructure {
 
         var cls = Context.getLocalClass().get();
 
-        //trace("--- Checkedtypes: " + [for(key in checkedTypes.keys()) key]);
-
         var stateType = switch Context.getLocalType() {
             // Let the compiler infer generic type parameters.
             case TInst(_, [t]): 
@@ -246,10 +246,6 @@ class DeepStateInfrastructure {
                 middlewares : ds.ImmutableArray<ds.Middleware<$stateComplexType>> = null
             ) {
                 super(initialState, _stateTypes, _stateTypes.get($v{stateTypeName}), middlewares);
-            }
-
-            public static function test() {
-                return $v{clsName};
             }
 
             @:noCompletion public function updateState(action : ds.Action) : $concreteType

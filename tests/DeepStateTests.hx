@@ -34,6 +34,18 @@ typedef TestState = {
 
 ///////////////////////////////////////////////////////////
 
+enum AltTest {
+	AltA;
+	AltB;
+}
+
+typedef AltState = {
+    final test : AltTest;
+    final name : String;
+}
+
+////////////////////////////////////////////////////////////
+
 enum Color<T> {
     Black(a : ImmutableArray<String>);
     White(b : T);
@@ -439,6 +451,15 @@ class DeepStateTests extends buddy.SingleSuite {
                     next.state.person.tags.length.should.be(2);
                     next.state.person.tags[0].name.should.be("Tagged");
                     next.state.person.tags[1].name.should.be("IG");
+                });
+
+                it("should handle simple enums", {
+                    var alt = new DeepState<AltState>({
+                        test: AltTest.AltA,
+                        name: "Artelius"
+                    });
+                    alt.state.test.should.equal(AltA);
+                    alt.state.name.should.be("Artelius");
                 });
 
                 it("should handle multi-dimensional array access for ImmutableArrays", {

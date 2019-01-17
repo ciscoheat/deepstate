@@ -172,6 +172,8 @@ class DeepStateUpdate {
 
         if(typeNameCalls.exists(hashKey)) {
             var typeHash = typeNameCalls.get(hashKey);
+            //trace(hashKey);
+            //trace(typeHash.hash); trace(actionHash);
 
             if(typeHash.hash != actionHash) {
                 var msg = 'Duplicate action type "$actionType", change updates or action type name.';
