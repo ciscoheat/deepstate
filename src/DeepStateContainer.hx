@@ -15,8 +15,11 @@ class DeepStateContainer<T> {
 
     public var state(get, never) : T;
     function get_state() : T return this.asset.state;
+    #end
 
     public function new(asset : DeepState<T>, observable : Observable<T> = null) {
+        // The compilation server seems to require a constructor in macro mode
+        #if !macro
         this.observable = observable == null ? new Observable<T>() : observable;
 
         if(asset == null) 
@@ -25,8 +28,10 @@ class DeepStateContainer<T> {
             this.asset = asset.copy(null, asset.middleware().concat([updateMutableAsset]));
             this.update(this.state = asset.state);
         }
+        #end
     }
 
+    #if !macro
     function updateMutableAsset(asset, next, action) {
         return this.observable.observe(asset, (a) -> this.asset = next(a), action);
     }
@@ -38,7 +43,6 @@ class DeepStateContainer<T> {
     @:noCompletion public function updateState(action : Action) : Void {
         this.asset._updateState(action);
     }
-
     #end
 
     public macro function enclose(container : Expr, statePath : Expr, observable : Expr = null) {

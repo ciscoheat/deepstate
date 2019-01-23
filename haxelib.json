@@ -12,7 +12,7 @@
 	"contributors": [
 		"ciscoheat"
 	],
-	"releasenote": "Fixed states with parameterless enums. Exposing metadata in MiddlewareAccess.",
-	"version": "0.13.0",
+	"releasenote": "Fixed diagnostic warnings for VSCode/compilation server.",
+	"version": "0.13.1",
 	"url": "http://github.com/ciscoheat/deepstate/"
 }
