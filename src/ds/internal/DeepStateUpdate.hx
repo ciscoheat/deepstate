@@ -203,10 +203,10 @@ class DeepStateUpdate {
     */
 
     public static function _update(asset : Expr, args : Array<Expr>) {
-        // Display mode have problems with checkDuplicateAction
+        // Make an array of the arguments to use them in the returned expression, 
+        // otherwise autocompletion doesn't work in the macro function call.
         if(Context.defined("display") || Context.defined("display-details")) {
-            var complexType = Context.toComplexType(Context.typeof(asset));
-            return macro (null : $complexType);
+            return macro $a{args};
         }
 
         var actionType : Expr = null;

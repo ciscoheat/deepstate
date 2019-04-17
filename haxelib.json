@@ -12,7 +12,7 @@
 	"contributors": [
 		"ciscoheat"
 	],
-	"releasenote": "Fixed diagnostic warnings for VSCode/compilation server.",
-	"version": "0.13.1",
+	"releasenote": "Autocompletion fixes for RC.",
+	"version": "0.13.2",
 	"url": "http://github.com/ciscoheat/deepstate/"
 }

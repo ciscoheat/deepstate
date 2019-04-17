@@ -63,6 +63,12 @@ class Observable<T> {
 
     #if macro
     public static function _subscribe(observable : Expr, paths : Array<Expr>) {
+        // Make an array of the arguments to use them in the returned expression, 
+        // otherwise autocompletion doesn't work in the macro function call.
+        if(Context.defined("display") || Context.defined("display-details")) {
+            return macro $a{paths};
+        }
+
         var listener = paths.pop();
 
         var callImmediate = switch listener.expr {

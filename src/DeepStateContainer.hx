@@ -46,6 +46,12 @@ class DeepStateContainer<T> {
     #end
 
     public macro function enclose(container : Expr, statePath : Expr, observable : Expr = null) {
+        // In display mode, return the actual arguments to use them in the returned expression, 
+        // otherwise autocompletion doesn't work in the macro function call.
+        if(Context.defined("display") || Context.defined("display-details")) {
+            return macro $statePath;
+        }
+
         var enclosureType = Context.toComplexType(try Context.typeof(statePath)
         catch(e : Dynamic) {
             Context.error("Cannot find type in state, please provide a type hint.", statePath.pos);
