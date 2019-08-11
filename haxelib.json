@@ -12,7 +12,7 @@
 	"contributors": [
 		"ciscoheat"
 	],
-	"releasenote": "Autocompletion fixes for RC.",
-	"version": "0.13.2",
+	"releasenote": "arrayAccess method on ImmutableArray and ImmutableMap is now public.",
+	"version": "0.13.3",
 	"url": "http://github.com/ciscoheat/deepstate/"
 }

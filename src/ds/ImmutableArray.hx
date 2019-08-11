@@ -2,7 +2,7 @@ package ds;
 
 @:forward(length, iterator, indexOf, join, lastIndexOf, toString)
 abstract ImmutableArray<T>(Array<T>) {
-	@:arrayAccess inline function arrayAccess(key : Int) : T 
+	@:arrayAccess public inline function arrayAccess(key : Int) : T 
         return this[key];
 
     inline function new(array : Array<T>)
@@ -85,7 +85,7 @@ abstract ImmutableArray<T>(Array<T>) {
         return newArray;
     }
 
-    ///// Additions from standard Array interface /////
+    ///// Additions to standard Array interface /////
 
     public function first() : haxe.ds.Option<T> 
         return this.length == 0 ? None : Some(this[0]);
@@ -99,7 +99,7 @@ abstract ImmutableArray<T>(Array<T>) {
         return Lambda.array(this);
         
     public function concat(b : Iterable<T>)
-    	return new ImmutableArray(Lambda.array(Lambda.concat(this, b)));
+    	return new ImmutableArray(Lambda.concat(this, b));
 
     public function count(?f : T -> Bool)
         return Lambda.count(this, f);
@@ -111,13 +111,13 @@ abstract ImmutableArray<T>(Array<T>) {
         return Lambda.exists(this, f);
 
     public function filter(f:T -> Bool)
-        return new ImmutableArray(Lambda.array(Lambda.filter(this, f)));
+        return new ImmutableArray(Lambda.filter(this, f));
 
     public function find(f:T -> Bool)
         return Lambda.find(this, f);
 
     public function flatMap<B>(f:T -> Iterable<B>)
-        return new ImmutableArray(Lambda.array(Lambda.flatMap(this, f)));
+        return new ImmutableArray(Lambda.flatMap(this, f));
 
     public function fold<T2>(f:T -> T2 -> T2, first:T2)
         return Lambda.fold(this, f, first);
@@ -138,9 +138,9 @@ abstract ImmutableArray<T>(Array<T>) {
         return Lambda.list(this);
 
     public function map<T2>(f : T -> T2)
-        return new ImmutableArray(Lambda.array(Lambda.map(this, f)));
+        return new ImmutableArray(Lambda.map(this, f));
 
     public function mapi<T2>(f : Int -> T -> T2)
-        return new ImmutableArray(Lambda.array(Lambda.mapi(this, f)));
+        return new ImmutableArray(Lambda.mapi(this, f));
          
 }

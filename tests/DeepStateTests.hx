@@ -516,7 +516,7 @@ class DeepStateTests extends buddy.SingleSuite {
                 it("should throw when validation fails for DataClass objects", {
                     var next = FBI.setScore(asset2, 1);
                     next.state.score.should.be(1);
-                    (function() FBI.setScore(next, -100)).should.throwType(String);
+                    (function() FBI.setScore(next, -100)).should.throwType(dataclass.DataClassException);
                 });
             });
         });

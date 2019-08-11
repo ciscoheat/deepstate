@@ -4,7 +4,7 @@ import haxe.Constraints;
 @:multiType
 @:forward(exists, get, iterator, keys, toString)
 abstract ImmutableMap<K, V>(IMap<K, V>) from haxe.IMap<K, V> {
-  	@:arrayAccess @:extern inline function arrayAccess(key : K) : V 
+  	@:arrayAccess @:extern public inline function arrayAccess(key : K) : V 
       return this.get(key);
 
     public function new(map : Map<K, V>); // this = map;

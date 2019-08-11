@@ -4,7 +4,7 @@
 -debug
 -cp src
 -cp tests
--D deepstate-public-update
+#-D deepstate-public-update
 
 #--times
 #-D macro-times
