@@ -12,7 +12,7 @@
 	"contributors": [
 		"ciscoheat"
 	],
-	"releasenote": "arrayAccess method on ImmutableArray and ImmutableMap is now public.",
-	"version": "0.13.3",
+	"releasenote": "Added ImmutableArray.set",
+	"version": "0.13.4",
 	"url": "http://github.com/ciscoheat/deepstate/"
 }

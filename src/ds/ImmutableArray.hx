@@ -93,6 +93,12 @@ abstract ImmutableArray<T>(Array<T>) {
     public function last() : haxe.ds.Option<T>
         return this.length == 0 ? None : Some(this[this.length-1]);
 
+    public function set(index : Int, x : T) : ImmutableArray<T> {
+        var newArray = this.copy();
+        newArray[index] = x;
+        return newArray;
+    }
+
     ///// Lambda extension duplicate /////
 
     @:to public function array()
