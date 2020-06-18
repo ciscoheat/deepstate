@@ -69,9 +69,12 @@ class DeepState<T> {
 
                         var field = fields.get(name);
                         if(field == null) error() else {
-                            var newObj = createNew(Reflect.field(currentObject, name), field);
-                            @:nullSafety(Off) Reflect.setField(data, name, newObj);
-                        }
+                            @:nullSafety(Off) var curObj = Reflect.field(currentObject, name);
+                            if(curObj == null) error() else {
+                                var newObj = createNew(curObj, field);
+                                @:nullSafety(Off) Reflect.setField(data, name, newObj);
+                            }
+                        }                        
                         return data;
 
                     case Instance(cls, fields):
@@ -80,7 +83,7 @@ class DeepState<T> {
 
                         // If problems, use getProperty instead of field.
                         for(f in fields.keys())
-                            data.set(f, Reflect.field(currentObject, f));
+                            @:nullSafety(Off) data.set(f, Reflect.field(currentObject, f));
 
                         var field = fields.get(name);
                         if(field == null) error()

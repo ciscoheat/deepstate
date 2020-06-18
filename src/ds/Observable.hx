@@ -34,7 +34,7 @@ class Observable<T> {
             var output : Dynamic = state;
             for(p in path.split(".")) {
                 if(!Reflect.hasField(output, p)) throw 'Field not found in state: $path';
-                output = Reflect.field(output, p);
+                @:nullSafety(Off) output = Reflect.field(output, p);
             }
             return output;
         }
