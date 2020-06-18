@@ -104,7 +104,7 @@ class Person implements DataClass {
 }
 
 class DataClassState implements DataClass {
-    @validate(_ >= 0)
+    @:validate(_ >= 0)
     public final score : Int = 100;
     public final person : Person;
 }

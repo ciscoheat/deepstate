@@ -12,7 +12,7 @@
 	"contributors": [
 		"ciscoheat"
 	],
-	"releasenote": "Added ImmutableArray.set",
-	"version": "0.13.4",
+	"releasenote": "Null safety compatibility.",
+	"version": "0.14.0",
 	"url": "http://github.com/ciscoheat/deepstate/"
 }

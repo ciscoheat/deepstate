@@ -6,5 +6,7 @@
 -D analyzer-optimize
 -dce full
 
+--macro nullSafety("ds", Strict)
+
 -cp tests
 -main DeepStateTests

@@ -3,6 +3,7 @@ import haxe.Constraints;
 
 @:multiType
 @:forward(exists, get, iterator, keys, toString)
+@:nullSafety(Off)
 abstract ImmutableMap<K, V>(IMap<K, V>) from haxe.IMap<K, V> {
   	@:arrayAccess @:extern public inline function arrayAccess(key : K) : V 
       return this.get(key);

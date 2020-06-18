@@ -53,7 +53,7 @@ class Observable<T> {
                 }
 
                 if(shouldCall)
-                    Reflect.callMethod(null, listener, parameters);
+                    @:nullSafety(Off) Reflect.callMethod(null, listener, parameters);
         }        
     }
 

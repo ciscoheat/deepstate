@@ -2,7 +2,7 @@ package ds;
 
 import haxe.DynamicAccess;
 
-@:forward(copy, exists, keys)
+@:forward(copy, exists, keys) @:nullSafety(Off)
 abstract ImmutableJson(DynamicAccess<Dynamic>) {
     @:from public static function fromJson(json : Dynamic) {
         var dyn : DynamicAccess<Dynamic> = json;

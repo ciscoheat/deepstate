@@ -29,8 +29,8 @@ class DeepState<T> {
         middlewares : ImmutableArray<Middleware<T>>
     ) {
         this.state = state == null ? throw "state is null" : state;
-        this.stateTypes = stateTypes;
-        this.stateType = stateType;
+        this.stateTypes = stateTypes == null ? throw "stateTypes is null" : stateTypes;
+        this.stateType = stateType == null ? throw "stateType is null" : stateType;
         this.middlewares = middlewares == null ? [] : middlewares;
     }
 
@@ -54,18 +54,24 @@ class DeepState<T> {
      * Make a copy of a state object, replacing a value in the state.
      * All references except the new value will be kept.
      */
-    @:noCompletion inline function _createAndReplace(currentState : T, path : ImmutableArray<Action.PathAccess>, newValue : Any) : T {
-        function error() { throw "Invalid DeepState update: " + path + " (" + newValue + ")"; }
+    @:noCompletion inline function _createAndReplace(currentState : T, path : ImmutableArray<Action.PathAccess>, newValue : Null<Any>) : T {
+        function error() { throw "Invalid DeepState update: " + path + " (" + @:nullSafety(Off) newValue + ")"; }
 
         var iter = path.iterator();
-        function createNew(currentObject : Any, curState : StateObjectType) : Any {
+        function createNew(currentObject : Any, curState : StateObjectType) : Null<Any> {
             //trace(currentObject + " - " + curState);
             if(!iter.hasNext()) return newValue
             else switch iter.next() {
                 case Field(name): switch curState {
                     case Anonymous(fields):
                         var data = Reflect.copy(currentObject);
-                        Reflect.setField(data, name, createNew(Reflect.field(currentObject, name), fields.get(name)));
+                        if(data == null) return null;
+
+                        var field = fields.get(name);
+                        if(field == null) error() else {
+                            var newObj = createNew(Reflect.field(currentObject, name), field);
+                            @:nullSafety(Off) Reflect.setField(data, name, newObj);
+                        }
                         return data;
 
                     case Instance(cls, fields):
@@ -76,19 +82,23 @@ class DeepState<T> {
                         for(f in fields.keys())
                             data.set(f, Reflect.field(currentObject, f));
 
-                        data.set(name, createNew(Reflect.field(currentObject, name), fields.get(name)));
+                        var field = fields.get(name);
+                        if(field == null) error()
+                        else @:nullSafety(Off) data.set(name, createNew(Reflect.field(currentObject, name), field));
 
                         return Type.createInstance(Type.resolveClass(cls), [data]);
 
                     case Recursive(type):
-                        return createNew(currentObject, this.stateTypes.get(type));
+                        var curState = this.stateTypes.get(type);
+                        if(curState == null) error() else
+                        return createNew(currentObject, curState);
 
                     case _: error();
                 }
                 case Array(index): switch curState {
                     case Array(type):
                         var newArray = (currentObject : Array<Dynamic>).copy();
-                        newArray[index] = createNew(newArray[index], type);
+                        @:nullSafety(Off) newArray[index] = createNew(newArray[index], type);
                         return newArray;
 
                     case _: error();
@@ -96,17 +106,22 @@ class DeepState<T> {
                 case Map(key): switch curState {
                     case Map(type):
                         var currentMap : ImmutableMap<Dynamic, Dynamic> = cast currentObject;
-                        return currentMap.set(key, createNew(currentMap.get(key), type));
+                        var currentObj = currentMap.get(key);
+                        if(currentObj == null) error()
+                        else @:nullSafety(Off) return currentMap.set(key, createNew(currentObj, type));
 
                     case _: error();
                 }
 
             }
-            // TODO: Throw here
-            return null;
+            
+            error();
+            throw "_createAndReplace error";
         }
 
-        return createNew(currentState, this.stateType);
+        var newObj = createNew(currentState, this.stateType);
+        if(newObj == null) error();
+        @:nullSafety(Off) return newObj;
     }
 
     @:allow(DeepStateContainer) @:noCompletion 
@@ -115,7 +130,7 @@ class DeepState<T> {
         function copyAndUpdateState(action : Action) : DeepState<T> {
             var newState = this.state;
             for(a in action.updates) {
-                newState = _createAndReplace(newState, a.path, a.value);
+                @:nullSafety(Off) newState = _createAndReplace(newState, a.path, a.value);
             }
             return this.copyAsset(newState, this.middlewares);
         }
